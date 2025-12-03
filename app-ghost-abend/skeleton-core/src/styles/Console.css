@@ -1,0 +1,114 @@
+.console-page {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.console-header {
+  margin-bottom: 2rem;
+}
+
+.console-header h1 {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.console-header p {
+  color: var(--text-secondary);
+  font-size: 1rem;
+}
+
+.console-terminal {
+  background: #1a1a1a;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9rem;
+  min-height: 500px;
+  display: flex;
+  flex-direction: column;
+}
+
+.console-output {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+  color: #00ff00;
+}
+
+.console-welcome {
+  color: #888;
+  margin-bottom: 1rem;
+}
+
+.console-welcome p {
+  margin: 0.25rem 0;
+}
+
+.console-entry {
+  margin-bottom: 1rem;
+}
+
+.console-prompt {
+  color: #00ff00;
+  margin-bottom: 0.25rem;
+}
+
+.console-user {
+  color: #00ff00;
+  font-weight: bold;
+}
+
+.console-separator {
+  color: #888;
+  margin: 0 0.25rem;
+}
+
+.console-workspace {
+  color: #00aaff;
+  font-weight: bold;
+}
+
+.console-dollar {
+  color: #888;
+  margin: 0 0.5rem;
+}
+
+.console-command {
+  color: #fff;
+}
+
+.console-result {
+  color: #ccc;
+  padding-left: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.console-result div {
+  margin: 0.1rem 0;
+}
+
+.console-input-line {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid #333;
+  padding-top: 0.5rem;
+}
+
+.console-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9rem;
+  outline: none;
+  padding: 0.25rem;
+}
+
+.console-input::placeholder {
+  color: #555;
+}

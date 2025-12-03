@@ -1,0 +1,64 @@
+.access-denied {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  padding: 2rem;
+}
+
+.access-denied-content {
+  text-align: center;
+  max-width: 500px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 3rem 2rem;
+}
+
+.access-denied-icon {
+  font-size: 4rem;
+  margin-bottom: 1rem;
+}
+
+.access-denied h2 {
+  color: #ff6b6b;
+  margin-bottom: 1rem;
+  font-size: 1.8rem;
+}
+
+.access-denied p {
+  color: #b0b0b0;
+  margin-bottom: 0.8rem;
+  line-height: 1.6;
+}
+
+.access-denied-details {
+  color: #e0e0e0;
+  font-size: 1.1rem;
+}
+
+.access-denied-details strong {
+  color: #4ecdc4;
+}
+
+.access-denied-help {
+  font-size: 0.9rem;
+  margin-top: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.btn-back {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 0.8rem 2rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.btn-back:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}

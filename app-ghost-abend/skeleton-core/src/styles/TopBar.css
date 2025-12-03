@@ -1,0 +1,91 @@
+.top-bar {
+  background: var(--gradient-primary);
+  color: white;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: var(--shadow-md);
+  border-bottom: 2px solid var(--accent-purple);
+}
+
+.top-bar-left {
+  display: flex;
+  align-items: center;
+}
+
+.app-title {
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kiroween-badge {
+  background: var(--gradient-accent);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(255, 107, 53, 0.3);
+}
+
+.top-bar-right {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.selector label {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.selector select {
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.selector select:hover {
+  border-color: var(--accent-purple);
+}
+
+.role-badge {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.demo-mode-btn {
+  background: linear-gradient(135deg, #ff6b35 0%, #ff8555 100%);
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.demo-mode-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.4);
+}
