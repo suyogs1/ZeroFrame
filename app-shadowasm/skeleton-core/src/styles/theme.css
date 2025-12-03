@@ -1,0 +1,66 @@
+/* Kiroween Dark Theme */
+:root {
+  /* Dark backgrounds */
+  --bg-primary: #0f0f0f;
+  --bg-secondary: #1a1a1a;
+  --bg-tertiary: #242424;
+  --bg-card: #1e1e1e;
+  --bg-hover: #2a2a2a;
+  
+  /* Text colors */
+  --text-primary: #e5e5e5;
+  --text-secondary: #a0a0a0;
+  --text-muted: #707070;
+  
+  /* Kiroween accent colors */
+  --accent-orange: #ff6b35;
+  --accent-purple: #9b59b6;
+  --accent-ghost: #8b5cf6;
+  --accent-pumpkin: #f97316;
+  
+  /* Status colors (adjusted for dark theme) */
+  --status-success: #10b981;
+  --status-warning: #f59e0b;
+  --status-error: #ef4444;
+  --status-info: #3b82f6;
+  
+  /* Borders */
+  --border-color: #333333;
+  --border-light: #404040;
+  
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.6);
+  
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #1e1b4b 0%, #4c1d95 100%);
+  --gradient-accent: linear-gradient(135deg, var(--accent-purple) 0%, var(--accent-orange) 100%);
+}
+
+/* Spooky background pattern */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.03) 0%, transparent 50%),
+    radial-gradient(circle at 80% 20%, rgba(249, 115, 22, 0.03) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Subtle spooky corner decoration */
+.layout::after {
+  content: '🎃';
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  font-size: 24px;
+  opacity: 0.15;
+  pointer-events: none;
+  z-index: 1;
+}

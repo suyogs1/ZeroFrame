@@ -1,0 +1,143 @@
+.security {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-color);
+}
+
+.security h2 {
+  font-size: 24px;
+  margin-bottom: 24px;
+  color: var(--text-primary);
+}
+
+.security-section {
+  margin-bottom: 32px;
+}
+
+.security-section h3 {
+  font-size: 18px;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.user-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+}
+
+.user-table th,
+.user-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.user-table th {
+  background: var(--bg-secondary);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.user-table tr.active-user {
+  background: rgba(139, 92, 246, 0.2);
+  font-weight: 600;
+  border-left: 3px solid var(--accent-purple);
+}
+
+.role-descriptions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+}
+
+.role-card {
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  padding: 16px;
+  border-left: 4px solid var(--accent-purple);
+  border: 1px solid var(--border-color);
+}
+
+.role-card h4 {
+  font-size: 16px;
+  margin-bottom: 8px;
+  color: var(--accent-purple);
+}
+
+.role-card p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.matrix-note {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+  font-style: italic;
+}
+
+.permissions-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.permissions-table th,
+.permissions-table td {
+  padding: 12px;
+  text-align: center;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.permissions-table th {
+  background: var(--bg-secondary);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.permissions-table td:first-child {
+  text-align: left;
+  font-weight: 500;
+}
+
+.permission-cell {
+  font-size: 18px;
+  color: var(--status-success);
+}
+
+.current-user-banner {
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid var(--accent-purple);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 24px;
+}
+
+.current-user-banner p {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.current-user-banner p:not(:last-child) {
+  margin-bottom: 8px;
+}
+
+.read-only-notice {
+  color: var(--status-warning);
+  font-style: italic;
+}
+
+.highlight-column {
+  background: rgba(139, 92, 246, 0.15);
+  font-weight: 600;
+}
