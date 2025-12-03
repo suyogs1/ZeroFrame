@@ -16,7 +16,6 @@ export type {
   Workspace,
   Job,
   JobStatus,
-  JobType,
   Dataset,
   AuditEvent,
   SystemApp,
@@ -59,3 +58,4 @@ export type { PermissionAction } from './core/permissions';
 // Utilities
 export { computeDatasetProfile, formatProfileStat, getNullPercentage } from './core/datasetProfiling';
 export { HACKATHON_CONFIG } from './core/hackathonConfig';
+
