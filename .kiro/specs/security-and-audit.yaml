@@ -1,0 +1,118 @@
+name: Security & Audit
+description: Role-based permission system and comprehensive audit logging
+
+overview: |
+  Zeroframe OS implements a role-based access control (RBAC) system with four
+  predefined roles. Each role has specific permissions that govern what actions
+  users can perform. All significant actions are logged as audit events for
+  compliance and troubleshooting.
+
+roles:
+  DEV:
+    description: Developer role with limited permissions
+    permissions:
+      - VIEW_JOBS
+      - SUBMIT_JOB
+      - VIEW_DATASETS
+      - VIEW_AUDIT
+  
+  OPERATOR:
+    description: Operations role with job management capabilities
+    permissions:
+      - VIEW_JOBS
+      - SUBMIT_JOB
+      - MANAGE_JOBS
+      - VIEW_DATASETS
+      - VIEW_AUDIT
+  
+  AUDITOR:
+    description: Audit and compliance role with read-only access
+    permissions:
+      - VIEW_JOBS
+      - VIEW_DATASETS
+      - VIEW_AUDIT
+      - VIEW_SECURITY
+  
+  ADMIN:
+    description: Administrator role with full permissions
+    permissions:
+      - VIEW_JOBS
+      - SUBMIT_JOB
+      - MANAGE_JOBS
+      - VIEW_DATASETS
+      - MANAGE_DATASETS
+      - VIEW_AUDIT
+      - VIEW_SECURITY
+      - MANAGE_SECURITY
+
+permission_actions:
+  - VIEW_JOBS: View job list and details
+  - SUBMIT_JOB: Submit new jobs to the queue
+  - MANAGE_JOBS: Retry, cancel, or modify jobs
+  - VIEW_DATASETS: View dataset list and details
+  - MANAGE_DATASETS: Create, update, or delete datasets
+  - VIEW_AUDIT: View audit event logs
+  - VIEW_SECURITY: View security policies and role definitions
+  - MANAGE_SECURITY: Modify security policies and role assignments
+
+data_model:
+  User:
+    fields:
+      - id: string
+      - name: string
+      - role: Role (DEV | OPERATOR | AUDITOR | ADMIN)
+  
+  AuditEvent:
+    fields:
+      - id: string
+      - timestamp: string (ISO timestamp)
+      - userId: string (who performed the action)
+      - action: string (what action was performed)
+      - resourceType: 'JOB' | 'DATASET' | 'SECURITY' | 'SYSTEM_APP'
+      - resourceId: string (optional, which resource was affected)
+      - details: string (optional, additional context)
+
+zeroframe_context:
+  state:
+    - activeUser: User (currently logged-in user)
+    - activeWorkspace: Workspace (current workspace context)
+    - auditEvents: AuditEvent[] (audit log)
+    - jobs: Job[] (job engine state)
+  
+  operations:
+    - setActiveUser(userId): Switch active user
+    - setActiveWorkspace(workspace): Switch workspace
+    - logAuditEvent(event): Append audit event
+    - hasPermission(action): Check if activeUser has permission
+    - submitJob, runWorkerTick, retryJob, cancelJob: Job engine operations
+
+protected_routes:
+  - ProtectedRoute component wraps routes that require permissions
+  - If user lacks permission, shows permission denied message
+  - Example: Security page requires VIEW_SECURITY permission
+
+audit_logging:
+  logged_actions:
+    - User switches (USER_SWITCHED)
+    - Workspace switches (WORKSPACE_SWITCHED)
+    - Job submissions (JOB_SUBMITTED)
+    - Job completions (JOB_COMPLETED)
+    - Job failures (JOB_FAILED)
+    - Job retries (JOB_RETRYING, JOB_RETRY_REQUESTED)
+    - Job cancellations (JOB_CANCELLED)
+    - Job views (JOB_VIEWED)
+    - Dataset views (DATASET_VIEWED)
+    - System app access (SYSTEM_APP_ACCESSED, *_VIEWED)
+    - Security policy changes (SECURITY_POLICY_UPDATED)
+
+ui_integration:
+  - TopBar shows activeUser and activeWorkspace with dropdowns
+  - Permission-gated buttons are disabled with title hints
+  - Audit Explorer displays auditEvents in reverse chronological order
+  - Security page shows role definitions and permission mappings
+
+extension_points:
+  - Add new roles: Extend Role union and ROLE_PERMISSIONS mapping
+  - Add new permissions: Extend PermissionAction union
+  - Add new audit actions: Use logAuditEvent with custom action strings
+  - Add resource-level permissions: Extend hasPermission to check resource ownership

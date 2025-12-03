@@ -1,0 +1,169 @@
+name: Kernel Advanced Features
+description: Boot sequence, kernel panic, snapshots, and VFS for Zeroframe OS microkernel
+
+features:
+  - name: Boot Sequence
+    description: |
+      OS boot animation that displays before the main application loads.
+      Shows simulated boot logs with kernel initialization steps.
+    implementation:
+      - component: src/components/BootScreen.tsx
+      - state: hasBooted in ZeroframeContext
+      - flow: |
+          1. App starts with hasBooted=false
+          2. BootScreen displays animated logs
+          3. After ~1.5 seconds, completeBoot() is called
+          4. hasBooted becomes true, normal app renders
+    boot_logs:
+      - "Initializing Zeroframe microkernel"
+      - "Loading syscall dispatcher"
+      - "Mounting workspaces DEV/UAT/PROD"
+      - "Initializing Virtual File System"
+      - "Starting Worker Daemon"
+      - "Starting Ghost ABEND Service"
+      - "Starting ShadowASM Service"
+      - "Starting Command Console"
+      - "Loading system apps"
+      - "Initializing audit subsystem"
+      - "Zeroframe OS Kiroween Edition READY"
+
+  - name: Kernel Panic
+    description: |
+      Simulated kernel panic screen that halts the OS and requires reboot.
+      Demonstrates error handling and system recovery.
+    implementation:
+      - component: src/components/KernelPanicScreen.tsx
+      - state: kernelPanic in ZeroframeContext
+      - trigger: triggerKernelPanic(reason?: string)
+      - recovery: rebootKernel()
+    behavior:
+      - When panic triggered, kernelPanic state becomes true
+      - App renders KernelPanicScreen instead of normal UI
+      - Panic screen shows error message and reboot button
+      - Reboot resets kernel metrics and re-runs boot sequence
+      - Audit event logged (if kernel still responsive)
+    use_cases:
+      - Demo purposes (console 'panic' command)
+      - Testing error recovery
+      - Showcasing system resilience
+
+  - name: Snapshots
+    description: |
+      Save and restore complete OS state through kernel API.
+      Allows capturing system state at any point and restoring later.
+    syscalls:
+      - snapshots.list: List all saved snapshots
+      - snapshots.create: Create new snapshot with optional label
+      - snapshots.restore: Restore OS to snapshot state
+    snapshot_contents:
+      - jobs: All job records
+      - datasets: Dataset metadata
+      - auditEvents: Complete audit trail
+      - activeUserId: Current user ID
+      - activeWorkspace: Current workspace
+      - metrics: Kernel metrics at snapshot time
+    implementation:
+      - state: snapshots array in ZeroframeContext
+      - api: kernel.sys.snapshots
+      - capabilities: Restricted to OPERATOR and ADMIN roles
+    use_cases:
+      - Save system state before risky operations
+      - Demo reset to known state
+      - Testing and development
+      - Disaster recovery
+
+  - name: Virtual File System (VFS)
+    description: |
+      Simple read-only VFS that exposes OS data as a hierarchical file system.
+      Includes workspace directories and pseudo-devices.
+    syscalls:
+      - vfs.list: List directory contents or get node info
+      - vfs.readFile: Read file or device content
+    structure:
+      root: /
+      workspaces:
+        - /DEV/datasets/<name>
+        - /UAT/datasets/<name>
+        - /PROD/datasets/<name>
+      devices:
+        - /dev/time: Returns current ISO timestamp
+        - /dev/random: Returns random number
+        - /dev/null: Empty device
+        - /dev/logger: Write-only logger (simulated)
+    node_types:
+      - FILE: Regular file (dataset metadata)
+      - DIR: Directory (workspace, datasets folder)
+      - DEVICE: Pseudo-device (dynamic content)
+    implementation:
+      - resolver: resolveVfsNode() in ZeroframeContext
+      - api: kernel.sys.vfs
+      - capabilities: Read access for all roles
+    use_cases:
+      - Console 'ls' and 'cat' commands
+      - Unified view of OS resources
+      - Familiar Unix-like interface
+      - Demo and exploration
+
+  - name: Console Commands
+    description: |
+      Enhanced Command Console with VFS, panic, and demo orchestration.
+    new_commands:
+      - ls [path]: List VFS directory contents
+      - cat <path>: Read VFS file or device
+      - panic: Trigger kernel panic (for demo)
+      - run demo: Execute end-to-end demo scenario
+    run_demo_flow:
+      - Submit demo batch job
+      - Run worker ticks to process jobs
+      - Submit ShadowASM simulation
+      - Send IPC message to Ghost ABEND
+      - Display completion message with next steps
+    implementation:
+      - component: src/pages/Console.tsx
+      - uses: kernel.dispatcher.invoke() for VFS syscalls
+      - uses: triggerKernelPanic() for panic command
+      - uses: api methods for demo orchestration
+
+integration:
+  - All features built on microkernel architecture
+  - All operations go through kernel.sys APIs
+  - Syscalls enforced by dispatcher with capability checks
+  - Role-based permissions applied at kernel level
+  - Audit events logged for all significant actions
+
+demo_usage:
+  boot:
+    - Refresh page to see boot sequence
+    - Boot runs automatically on first load
+  panic:
+    - Open Console (/apps/console)
+    - Type 'panic' and press Enter
+    - Observe panic screen
+    - Click 'Reboot OS' to recover
+  vfs:
+    - Open Console
+    - Type 'ls /' to see root directories
+    - Type 'ls /DEV/datasets' to see DEV datasets
+    - Type 'cat /dev/time' to read current time
+    - Type 'cat /DEV/datasets/<name>' to read dataset info
+  demo:
+    - Open Console
+    - Type 'run demo' and press Enter
+    - Watch orchestrated actions
+    - Check Dashboard, Job Center, Ghost ABEND, Audit Explorer
+
+constraints:
+  - Boot sequence runs on every page refresh (no persistence)
+  - Snapshots stored in memory only (lost on refresh)
+  - VFS is read-only (no write operations)
+  - Panic is simulated (no actual kernel crash)
+  - All features respect microkernel boundaries
+
+future_enhancements:
+  - Persist snapshots to localStorage
+  - Add VFS write operations
+  - More pseudo-devices (/dev/jobs, /dev/audit)
+  - Snapshot diff and comparison
+  - Scheduled snapshots
+  - Boot from snapshot
+  - Custom boot scripts

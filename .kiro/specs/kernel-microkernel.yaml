@@ -1,0 +1,408 @@
+name: Microkernel Architecture
+description: |
+  Zeroframe OS uses a microkernel-style architecture where system apps run in userland
+  and interact with core services through a well-defined syscall layer with per-app capabilities.
+
+architecture:
+  overview: |
+    The microkernel separates core OS functionality (job engine, audit, security, datasets)
+    from system apps (Ghost ABEND, ShadowASM, Job Center, etc.). Apps cannot directly
+    manipulate OS state - they must go through the kernel's syscall interface.
+    
+    ALL syscalls are routed through a central dispatcher that enforces:
+    - App capability checks (AppCapabilityDescriptor.allowedSyscalls)
+    - Role-based permission checks (user role → PermissionAction)
+    - Org isolation (multi-tenant: all syscalls filter by activeOrg.id)
+    - Metrics tracking (syscall counters)
+    - Consistent error handling (KernelError with error codes)
+    
+    MULTI-TENANCY: The microkernel is org-aware. Every syscall executes within a
+    (user, org, workspace) triple context. All data is filtered by activeOrg.id at
+    the kernel level, making cross-org access impossible.
+
+  components:
+    - name: Kernel
+      location: src/kernel/types.ts
+      description: |
+        The Kernel object exposes a `sys` API with six subsystems:
+        - jobs: Job submission, retry, cancel, list, worker tick
+        - datasets: Dataset listing
+        - audit: Event logging and listing
+        - security: User and workspace identity
+        - messaging: Inter-process communication (IPC) between apps
+        - processes: Process listing (jobs and services)
+        
+        The Kernel also exposes:
+        - `metrics`: Tracking uptime and syscall usage
+        - `dispatcher`: Central syscall dispatcher with capability/role enforcement
+        - `capabilities`: Array of AppCapabilityDescriptor for all apps
+
+    - name: Kernel Dispatcher
+      location: src/core/ZeroframeContext.tsx
+      description: |
+        The KernelDispatcher is the single entry point for all syscalls. It:
+        1. Checks app capabilities via appHasSyscall(appId, syscall)
+        2. Checks role permissions via isRoleAllowedToCall(user, syscall)
+        3. Records metrics via recordSyscall(syscall)
+        4. Delegates to syscallHandlers[syscall] for execution
+        5. Returns { ok: true, value } or { ok: false, error: KernelError }
+        
+        The dispatcher ensures no syscall bypasses security checks.
+
+    - name: Kernel Errors
+      location: src/kernel/errors.ts
+      description: |
+        Structured error model with KernelErrorCode:
+        - FORBIDDEN_SYSCALL: App lacks capability for syscall
+        - FORBIDDEN_ROLE: User role lacks permission for syscall
+        - INVALID_ARGUMENT: Invalid syscall name or arguments
+        - NOT_FOUND: Resource not found
+        - INTERNAL_ERROR: Kernel crash or unexpected error
+        
+        All errors include syscall name, appId, and details for debugging.
+
+    - name: Role Permissions
+      location: src/kernel/rolePermissions.ts
+      description: |
+        Maps SyscallName → PermissionAction to enforce role-based access control.
+        Examples:
+        - jobs.submit → SUBMIT_JOB (requires DEV role)
+        - jobs.tick → MANAGE_JOBS (requires OPERATOR role)
+        - audit.list → VIEW_AUDIT (requires AUDITOR role)
+        
+        This provides a second layer of security beyond app capabilities.
+
+    - name: Capabilities
+      location: src/kernel/capabilities.ts
+      description: |
+        Each system app has an AppCapabilityDescriptor that defines which syscalls
+        it can use. The kernel enforces these capabilities at runtime.
+
+    - name: OS App API
+      location: src/core/useOsAppApi.ts
+      description: |
+        The useOsAppApi(appId) hook is the userland syscall wrapper. It routes all
+        operations through the kernel and enforces capability checks. Apps that attempt
+        forbidden syscalls get an error and an audit event is logged.
+
+syscalls:
+  dispatcher_flow: |
+    All syscalls follow this flow:
+    1. App calls useOsAppApi(appId) method (e.g., api.submitJob(...))
+    2. useOsAppApi calls kernel.dispatcher.invoke(appId, syscall, args)
+    3. Dispatcher checks appHasSyscall(appId, syscall) → FORBIDDEN_SYSCALL if false
+    4. Dispatcher checks isRoleAllowedToCall(user, syscall) → FORBIDDEN_ROLE if false
+    5. Dispatcher records metrics via recordSyscall(syscall)
+    6. Dispatcher calls syscallHandlers[syscall](ctx, args)
+    7. Dispatcher returns { ok: true, value } or { ok: false, error }
+    8. useOsAppApi throws error if !ok, otherwise returns value
+    
+    This ensures NO syscall bypasses capability or role checks.
+
+  jobs:
+    - name: jobs.list
+      description: List all jobs in the system
+      returns: Job[]
+      role_requirement: VIEW_JOBS
+    - name: jobs.submit
+      description: Submit a new job to the queue
+      parameters: { name, type, workspace?, description?, priority?, scriptSummary?, tags? }
+      returns: Job
+      role_requirement: SUBMIT_JOB
+    - name: jobs.retry
+      description: Retry a failed job
+      parameters: jobId
+      role_requirement: MANAGE_JOBS
+    - name: jobs.cancel
+      description: Cancel a pending or running job
+      parameters: jobId
+      role_requirement: MANAGE_JOBS
+    - name: jobs.tick
+      description: Run one worker tick to process jobs
+      role_requirement: MANAGE_JOBS
+    - name: jobs.update
+      description: Update job fields (for system apps like Ghost ABEND)
+      parameters: { jobId, updater }
+      role_requirement: MANAGE_JOBS
+      
+  datasets:
+    - name: datasets.list
+      description: List all datasets
+      returns: Dataset[]
+      role_requirement: VIEW_DATASETS
+      
+  audit:
+    - name: audit.log
+      description: Log an audit event
+      parameters: { userId, action, resourceType, resourceId?, details? }
+      role_requirement: none (always allowed)
+    - name: audit.list
+      description: List all audit events
+      returns: AuditEvent[]
+      role_requirement: VIEW_AUDIT
+      
+  security:
+    - name: security.whoami
+      description: Get the current active user
+      returns: User
+      role_requirement: none (always allowed)
+    - name: security.workspace
+      description: Get the current active workspace
+      returns: Workspace
+      role_requirement: none (always allowed)
+      
+  messaging:
+    - name: messaging.send
+      description: Send a message to another app (IPC)
+      parameters: { fromAppId, toAppId, type, payload }
+      role_requirement: none (capability-gated only)
+    - name: messaging.consume
+      description: Consume messages sent to this app
+      returns: KernelMessage[]
+      role_requirement: none (capability-gated only)
+      
+  processes:
+    - name: processes.list
+      description: List all OS processes (jobs and services)
+      returns: OsProcess[]
+      role_requirement: VIEW_JOBS or VIEW_AUDIT
+      
+  kernel:
+    - name: kernel.metrics
+      description: Get kernel metrics (uptime, syscall counters)
+      returns: KernelMetrics
+      role_requirement: MANAGE_JOBS or VIEW_AUDIT
+
+app_capabilities:
+  jobs:
+    allowedSyscalls:
+      - jobs.list
+      - jobs.submit
+      - jobs.tick
+      - jobs.retry
+      - jobs.cancel
+      - audit.log
+      - audit.list
+      - security.whoami
+      - security.workspace
+    rationale: Job Center needs full job management capabilities
+
+  dashboard:
+    allowedSyscalls:
+      - jobs.list
+      - audit.list
+      - security.whoami
+      - security.workspace
+      - datasets.list
+    rationale: Dashboard is read-only, displays system overview
+
+  ghost-abend:
+    allowedSyscalls:
+      - jobs.list
+      - jobs.retry
+      - audit.log
+      - audit.list
+      - security.whoami
+      - security.workspace
+      - messaging.send
+      - messaging.consume
+    rationale: Ghost ABEND analyzes failed jobs and can retry them, uses IPC
+
+  shadowasm:
+    allowedSyscalls:
+      - jobs.list
+      - jobs.submit
+      - audit.log
+      - security.whoami
+      - security.workspace
+      - messaging.send
+      - messaging.consume
+    rationale: ShadowASM can submit SIMULATION jobs, uses IPC
+
+  audit:
+    allowedSyscalls:
+      - audit.list
+      - security.whoami
+      - security.workspace
+    rationale: Audit Explorer is read-only
+
+  datasets:
+    allowedSyscalls:
+      - datasets.list
+      - audit.log
+      - security.whoami
+      - security.workspace
+    rationale: Dataset Explorer lists datasets
+
+  security:
+    allowedSyscalls:
+      - audit.list
+      - audit.log
+      - security.whoami
+      - security.workspace
+    rationale: Security app manages policies
+
+  console:
+    allowedSyscalls:
+      - jobs.list
+      - jobs.submit
+      - jobs.retry
+      - jobs.cancel
+      - jobs.tick
+      - datasets.list
+      - audit.list
+      - audit.log
+      - security.whoami
+      - security.workspace
+      - messaging.send
+      - messaging.consume
+      - processes.list
+    rationale: Console has broad capabilities for admin tasks and kernel introspection
+
+  process-manager:
+    allowedSyscalls:
+      - processes.list
+      - audit.log
+      - security.whoami
+      - security.workspace
+    rationale: Process Manager displays kernel-derived process information
+
+  docs:
+    allowedSyscalls:
+      - audit.log
+      - security.whoami
+      - security.workspace
+    rationale: Docs app only logs access
+
+  desktop:
+    allowedSyscalls:
+      - audit.log
+      - security.whoami
+      - security.workspace
+    rationale: Desktop launcher logs app access
+
+security:
+  capability_enforcement: |
+    When an app calls useOsAppApi(appId), the returned API object only includes
+    methods for syscalls the app has permission to use. If an app attempts a
+    forbidden syscall, the kernel:
+    1. Logs a console warning
+    2. Creates an audit event with action 'FORBIDDEN_SYSCALL'
+    3. Throws an error to prevent the operation
+
+  audit_trail: |
+    All syscall attempts (successful and forbidden) are logged to the audit trail.
+    This provides complete visibility into app behavior and security violations.
+
+kernel_metrics:
+  overview: |
+    The kernel tracks its own metrics to provide visibility into system activity.
+    These metrics are exposed via kernel.metrics and can be queried by apps.
+
+  metrics_tracked:
+    - bootTime: ISO timestamp when kernel was initialized
+    - lastSyscallTime: ISO timestamp of most recent syscall
+    - totalSyscalls: Total number of syscalls executed
+    - syscallsByName: Record<SyscallName, number> - per-syscall counters
+
+  usage: |
+    Apps can access metrics through the kernel object:
+    const { kernel } = useZeroframe();
+    console.log('Uptime:', kernel.metrics.bootTime);
+    console.log('Total syscalls:', kernel.metrics.totalSyscalls);
+
+  demonstration: |
+    The Command Console app demonstrates kernel metrics with commands:
+    - uptime: Shows kernel uptime and last syscall time
+    - syscalls: Shows total syscalls and per-syscall breakdown
+
+process_model:
+  overview: |
+    The kernel exposes an OsProcess model that represents running jobs and services.
+    This is derived from kernel state, not ad-hoc UI state.
+
+  process_types:
+    - JOB: Processes derived from Job objects
+    - SERVICE: Static system services (Worker Daemon, Ghost ABEND, etc.)
+
+  process_status:
+    - RUNNING: Job status is RUNNING
+    - SLEEPING: Job status is PENDING or RETRYING
+    - STOPPED: Job status is COMPLETED, FAILED, or CANCELLED
+
+  process_fields:
+    - pid: Process identifier (e.g., "job-j123" or "svc-worker")
+    - name: Human-readable process name
+    - type: JOB or SERVICE
+    - status: RUNNING, SLEEPING, or STOPPED
+    - workspace: Associated workspace (if applicable)
+    - relatedJobId: Job ID (for JOB processes)
+    - relatedAppId: App ID (for SERVICE processes)
+    - cpuUsage: Simulated CPU usage (0-100)
+    - memUsage: Simulated memory usage (arbitrary units)
+    - startedAt: ISO timestamp when process started
+    - lastActivityAt: ISO timestamp of last activity
+
+  demonstration: |
+    The Process Manager app (/apps/processes) displays all processes in a table.
+    The Command Console app provides a 'ps' command to list processes.
+    Both demonstrate that the kernel has a unified view of running processes.
+
+ipc_messaging:
+  overview: |
+    The messaging subsystem provides a simple IPC mechanism for apps to communicate.
+    Messages are stored in kernel memory and consumed by the target app.
+
+  message_structure:
+    - id: Unique message identifier
+    - fromAppId: Sender app ID
+    - toAppId: Recipient app ID
+    - type: Message type (app-defined)
+    - payload: Message data (app-defined)
+    - timestamp: When message was sent
+    - consumed: Whether message has been read
+
+  usage_example: |
+    // In ShadowASM
+    api.sendMessage?.('ghost-abend', 'EXECUTION_TRACE', { 
+      programId: 'prog-123',
+      output: 'Hello World',
+      cycles: 42 
+    });
+
+    // In Ghost ABEND
+    const messages = api.consumeMessages?.() || [];
+    messages.forEach(msg => {
+      if (msg.type === 'EXECUTION_TRACE') {
+        console.log('Received trace from', msg.fromAppId, msg.payload);
+      }
+    });
+
+future_extensions:
+  - Message queues with persistence
+  - Pub/sub messaging patterns
+  - Message filtering and routing
+  - Rate limiting per app
+  - Message encryption for sensitive data
+  - Syscall rate limiting and quotas
+  - Dynamic capability granting/revocation
+  - Capability delegation between apps
+
+constraints:
+  - System apps MUST use useOsAppApi(appId) to interact with the OS
+  - System apps MUST NOT directly import ZeroframeContext operations
+  - System apps MUST NOT bypass the kernel syscall layer
+  - System apps MUST NOT call kernel.sys.* directly - use kernel.dispatcher.invoke
+  - ALL syscalls MUST go through the central dispatcher for enforcement
+  - New features SHOULD be exposed as new syscalls with capability checks
+  - Capability descriptors MUST be updated when adding new apps
+  - Role permission mappings MUST be updated in rolePermissions.ts for new syscalls
+  - Syscall handlers MUST be added to syscallHandlers registry in ZeroframeContext
+  - Breaking the dispatcher boundary undermines the microkernel architecture
+
+testing:
+  - Test each app with only its declared capabilities
+  - Test forbidden syscall attempts produce audit events
+  - Test IPC message delivery between apps
+  - Test capability enforcement across all syscalls
+  - Test kernel operations remain functional after refactor

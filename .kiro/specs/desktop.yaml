@@ -1,0 +1,52 @@
+name: Desktop Shell
+description: The main entry point and navigation hub for Zeroframe OS
+
+overview: |
+  The Desktop is a tile-based interface that displays all available SystemApps.
+  Each tile represents a system application that users can launch by clicking.
+  The Desktop uses React Router for navigation and integrates with the permission
+  system to show/hide apps based on user roles.
+
+components:
+  - name: Desktop.tsx
+    location: src/pages/Desktop.tsx
+    purpose: Main desktop screen with SystemApp tiles
+    
+  - name: systemApps.ts
+    location: src/core/systemApps.ts
+    purpose: Registry of all system applications
+    
+  - name: App.tsx
+    location: src/App.tsx
+    purpose: Root component with routing configuration
+
+data_model:
+  SystemApp:
+    fields:
+      - id: string (unique identifier)
+      - name: string (display name)
+      - description: string (brief description)
+      - route: string (React Router path)
+      - icon: string (optional emoji or icon)
+
+behavior:
+  - Desktop renders tiles from SYSTEM_APPS array
+  - Each tile is clickable and navigates to the app's route
+  - Tiles display app name, description, and icon
+  - Layout is responsive grid
+  - No permission filtering on Desktop (all apps visible, but routes may be protected)
+
+routing:
+  - "/" → Desktop
+  - "/jobs" → Job & Batch Center
+  - "/datasets" → Dataset Explorer
+  - "/security" → Security & Policies
+  - "/audit" → Telemetry & Audit Explorer
+  - "/apps/ghost-abend" → Ghost ABEND
+  - "/apps/shadow-asm" → ShadowASM
+  - "/docs" → Docs & Kiroween
+
+extension_points:
+  - Add new SystemApp: Add entry to SYSTEM_APPS array in systemApps.ts
+  - Add new route: Add Route in App.tsx
+  - Customize tile appearance: Modify Desktop.css

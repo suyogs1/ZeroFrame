@@ -1,0 +1,332 @@
+name: System Apps
+description: Pluggable application architecture for extending Zeroframe OS
+
+overview: |
+  System Apps are modular applications that run within the Zeroframe OS shell.
+  They are registered in a central registry and displayed as tiles on the Desktop.
+  Apps can be "parasitic" (consuming OS data) or standalone.
+  
+  All system apps interact with the OS through the microkernel's syscall layer
+  via the useOsAppApi(appId) hook. This enforces per-app capabilities and maintains
+  a clean separation between kernel and userland.
+  
+  CRITICAL: Apps MUST use useOsAppApi(appId) for ALL kernel interactions.
+  Apps MUST NOT:
+  - Import kernel.sys.* directly
+  - Call kernel.dispatcher.invoke() directly (use useOsAppApi instead)
+  - Bypass the syscall layer
+  - Directly mutate context state from app code
+
+system_app_definition:
+  SystemApp:
+    fields:
+      - id: string (unique identifier, kebab-case)
+      - name: string (display name)
+      - description: string (brief description for Desktop tile)
+      - route: string (React Router path)
+      - icon: string (optional emoji or icon character)
+
+registry:
+  location: src/core/systemApps.ts
+  export: SYSTEM_APPS array
+  
+  current_apps:
+    - id: jobs
+      name: Job & Batch Center
+      route: /jobs
+      description: Submit and monitor batch jobs
+      
+    - id: datasets
+      name: Dataset Explorer
+      route: /datasets
+      description: Browse and manage datasets
+      
+    - id: security
+      name: Security & Policies
+      route: /security
+      description: Manage roles and permissions
+      
+    - id: audit
+      name: Telemetry & Audit Explorer
+      route: /audit
+      description: View system audit logs
+      
+    - id: ghost-abend
+      name: Ghost ABEND
+      route: /apps/ghost-abend
+      description: Analyze failed jobs (parasitic)
+      parasitic: true
+      
+    - id: shadow-asm
+      name: ShadowASM
+      route: /apps/shadow-asm
+      description: Low-level debugging (stub)
+      parasitic: true
+      
+    - id: docs
+      name: Docs & Kiroween
+      route: /docs
+      description: Documentation and hackathon info
+
+parasitic_apps:
+  Ghost ABEND:
+    consumes: Job engine failure data, Dataset metadata, Dataset profiles
+    behavior: |
+      - Filters jobs where status === 'FAILED'
+      - Analyzes lastError field
+      - Provides rule-based explanations and suggestions
+      - Shows failure statistics and risk levels
+      - Dataset-aware: When datasetId is present, resolves dataset metadata via datasets.list
+      - Can filter failures by dataset
+      - Shows dataset context (name, columns, rowCount) for failed jobs
+      - Provides dataset-specific failure explanations and suggestions
+      - Profile-enhanced analysis: Uses dataset.profile to detect data quality issues
+      - Mentions high null counts in failure explanations
+      - Suggests data cleaning based on profile statistics
+    capabilities:
+      - jobs.list
+      - jobs.retry
+      - jobs.update
+      - datasets.list
+      - audit.log
+    
+  ShadowASM:
+    consumes: Dataset metadata and profiles for program generation
+    behavior: |
+      - High-level assembly playground for Zeroframe OS
+      - Can optionally target a dataset
+      - Reads dataset schema via datasets.list
+      - Generates starter assembly-style programs referencing that dataset
+      - Submitted simulation jobs include datasetId
+      - Allows failure analysis via Ghost ABEND with dataset context
+      - Programs run locally in browser with simulated execution
+      - Profile display: Shows column statistics when dataset selected
+      - Generated programs include profile stats in comments (min/max/avg/distinct/nulls)
+    capabilities:
+      - jobs.list
+      - jobs.submit
+      - datasets.list (NEW)
+      - audit.log
+
+adding_new_app:
+  steps:
+    1. Create page component in src/pages/
+    2. Create CSS file in src/styles/
+    3. Add SystemApp entry to SYSTEM_APPS in src/core/systemApps.ts
+    4. Add Route in src/App.tsx
+    5. (Optional) Add ProtectedRoute wrapper if permissions required
+    6. (Optional) Log audit event when app is accessed
+
+app_lifecycle:
+  - Apps are lazy-loaded via React Router
+  - Apps can use useZeroframe() hook to access context
+  - Apps can use usePermissions() to check permissions
+  - Apps should log audit events for significant actions
+
+integration_patterns:
+  consuming_jobs:
+    - Import useZeroframe hook
+    - Destructure { jobs } from context
+    - Filter/transform as needed
+    
+  consuming_datasets:
+    - Import datasets from mockData (or future context)
+    - Display in app-specific format
+    
+  consuming_audit_events:
+    - Import useAuditLog hook
+    - Destructure { auditEvents } from context
+    - Filter by action, resourceType, etc.
+
+extension_points:
+  - Add new system app: Follow "adding_new_app" steps
+  - Make app parasitic: Consume data from ZeroframeContext
+  - Add app-specific permissions: Use ProtectedRoute with custom permission
+  - Add app-specific state: Extend ZeroframeContext or use local state
+
+
+os_sdk:
+  description: |
+    The OS App API (useOsAppApi) provides a clean, unified interface for system apps
+    to interact with Zeroframe OS services. This SDK abstracts away the complexity
+    of multiple context hooks and provides a single entry point for app developers.
+  
+  location: src/core/useOsAppApi.ts
+  
+  interface:
+    OsAppApi:
+      activeUser: User object with id, name, role
+      activeWorkspace: Current workspace (DEV/UAT/PROD)
+      jobs: Array of all jobs in the system
+      submitJob: Function to create new jobs
+      retryJob: Function to retry failed jobs
+      cancelJob: Function to cancel running jobs
+      runWorkerTick: Function to manually trigger job processing
+      updateJob: Function to update job fields (e.g., rcaNote)
+      logAppAudit: Function to log app-specific audit events
+  
+  usage_example: |
+    import { useOsAppApi } from '../core/useOsAppApi';
+    
+    const MyApp: React.FC = () => {
+      const api = useOsAppApi('my-app-id');
+      
+      // Access OS state
+      const failedJobs = api.jobs.filter(j => j.status === 'FAILED');
+      
+      // Submit a job
+      api.submitJob({
+        name: 'My Job',
+        type: 'SIMULATION',
+        workspace: api.activeWorkspace,
+      });
+      
+      // Log audit event
+      api.logAppAudit({
+        action: 'MY_APP_ACTION',
+        resourceType: 'SYSTEM_APP',
+        details: 'User performed action in my app',
+      });
+      
+      return <div>My App</div>;
+    };
+
+real_app_implementations:
+  ghost_abend:
+    uses_sdk: true
+    sdk_usage:
+      - useOsAppApi('ghost-abend') for all OS interactions
+      - api.jobs to get failed jobs
+      - api.updateJob to save RCA notes
+      - api.retryJob to trigger job retries
+      - api.logAppAudit for all user actions (RCA saves, retries, filters)
+    
+    features:
+      - Automated severity assessment (LOW/MEDIUM/HIGH/CRITICAL)
+      - Intelligent failure explanations based on error patterns
+      - Workspace, severity, and text search filters
+      - Root Cause Analysis (RCA) note capture with persistence
+      - "Simulate Fix & Retry" operation for failed jobs
+      - Permission checks before allowing retries
+    
+    demonstrates:
+      - How to consume OS job engine state
+      - How to extend Job type with app-specific fields (rcaNote)
+      - How to use permissions for gated operations
+      - How to log comprehensive audit trails
+  
+  shadowasm:
+    uses_sdk: true
+    sdk_usage:
+      - useOsAppApi('shadowasm') for all OS interactions
+      - api.submitJob to create SIMULATION jobs
+      - api.activeWorkspace for job context
+      - api.logAppAudit for local runs and job submissions
+    
+    features:
+      - Simple assembly language (LOAD, ADD, SUB, PRINT, JNZ, HALT)
+      - Browser-based interpreter with register state
+      - Sample programs (sum, countdown, fibonacci)
+      - Local execution with output display
+      - Submit programs as SIMULATION jobs to OS
+      - Execution safety (max steps limit)
+    
+    demonstrates:
+      - How to build a dev tool on top of OS
+      - How to submit jobs programmatically
+      - How to use workspace context for job isolation
+      - How to log app-specific actions
+
+benefits_of_sdk:
+  - Single import instead of multiple context hooks
+  - Consistent API across all system apps
+  - Built-in audit logging with app ID tracking
+  - Type-safe interface with TypeScript
+  - Easy to mock for testing
+  - Clear separation between OS and app concerns
+
+
+microkernel_integration:
+  overview: |
+    System apps now interact with the OS through a microkernel architecture.
+    The useOsAppApi(appId) hook routes all operations through the kernel's
+    syscall layer with per-app capability enforcement.
+  
+  syscall_routing:
+    description: |
+      When an app calls useOsAppApi(appId), the hook:
+      1. Retrieves the kernel from ZeroframeContext
+      2. Checks the app's capability descriptor
+      3. Returns an API object with only permitted operations
+      4. Guards each operation with capability checks
+      5. Logs forbidden syscall attempts to audit trail
+  
+  capability_based_api:
+    description: |
+      The returned OsAppApi object only includes methods for syscalls the app
+      has permission to use. Optional methods (submitJob?, retryJob?, etc.) are
+      only present if the app has the corresponding capability.
+    
+    example: |
+      // Ghost ABEND has 'jobs.retry' capability
+      const api = useOsAppApi('ghost-abend');
+      if (api.retryJob) {
+        api.retryJob(jobId); // Available
+      }
+      
+      // Dashboard does NOT have 'jobs.retry' capability
+      const dashApi = useOsAppApi('dashboard');
+      if (dashApi.retryJob) {
+        // This block never executes - retryJob is undefined
+      }
+  
+  ipc_messaging:
+    description: |
+      Apps with 'messaging.send' and 'messaging.consume' capabilities can
+      communicate via the kernel's IPC mechanism.
+    
+    example: |
+      // ShadowASM sends execution trace to Ghost ABEND
+      const api = useOsAppApi('shadowasm');
+      api.sendMessage?.('ghost-abend', 'EXECUTION_TRACE', {
+        programId: 'prog-123',
+        output: 'Hello World',
+        cycles: 42
+      });
+      
+      // Ghost ABEND consumes messages
+      const abendApi = useOsAppApi('ghost-abend');
+      const messages = abendApi.consumeMessages?.() || [];
+      messages.forEach(msg => {
+        if (msg.type === 'EXECUTION_TRACE') {
+          console.log('Received trace:', msg.payload);
+        }
+      });
+  
+  security_benefits:
+    - Apps cannot bypass capability checks
+    - Forbidden syscalls are logged to audit trail
+    - Clear visibility into app behavior
+    - Easy to audit which apps have which permissions
+    - Prevents privilege escalation
+  
+  migration_notes:
+    - Existing apps continue to work without changes
+    - Apps using useOsAppApi automatically get capability enforcement
+    - No breaking changes to app code
+    - Kernel layer is transparent to apps
+  
+  future_enhancements:
+    - Dynamic capability granting/revocation
+    - Syscall rate limiting per app
+    - Capability delegation between apps
+    - Sandboxed app execution
+    - Resource quotas per app
+
+constraints_for_agents:
+  - System apps MUST use useOsAppApi(appId) for OS interactions
+  - System apps MUST NOT directly import ZeroframeContext operations
+  - System apps MUST NOT bypass the kernel syscall layer
+  - When adding new apps, MUST add capability descriptor to src/kernel/capabilities.ts
+  - When adding new OS features, SHOULD expose as new syscalls
+  - MUST preserve existing app functionality during refactors

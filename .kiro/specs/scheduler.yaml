@@ -1,0 +1,108 @@
+name: Scheduler Subsystem
+description: |
+  Kernel-level scheduler that automatically triggers profile jobs for datasets
+  at configurable intervals. Demonstrates automated job orchestration.
+
+requirements:
+  - id: sched-1
+    description: Scheduler triggers can be created for datasets
+    acceptance_criteria:
+      - Triggers specify dataset, workspace, interval in minutes
+      - Triggers are org-isolated (orgId)
+      - Triggers can be enabled/disabled
+  
+  - id: sched-2
+    description: Scheduler tick processes triggers and submits jobs
+    acceptance_criteria:
+      - Tick checks all enabled triggers for active org
+      - If interval elapsed since lastRunAt, submit profile job
+      - Update lastRunAt timestamp after submission
+      - Log audit event for scheduler tick
+  
+  - id: sched-3
+    description: Scheduler syscalls enforce capabilities and roles
+    acceptance_criteria:
+      - scheduler.list allowed for VIEW_JOBS or VIEW_DATASETS
+      - scheduler.create/delete/tick restricted to MANAGE_JOBS
+      - All syscalls go through dispatcher
+      - Forbidden attempts logged and alerted
+  
+  - id: sched-4
+    description: Auto-scheduler runs periodically
+    acceptance_criteria:
+      - useEffect in ZeroframeContext runs tick every 30 seconds
+      - Triggers fire automatically without user interaction
+      - Demo-friendly for judges
+
+design:
+  architecture: |
+    Scheduler is a kernel subsystem (kernel.sys.scheduler) with:
+    - State: schedulerTriggers array in ZeroframeContext
+    - API: listTriggers, createTrigger, deleteTrigger, tick
+    - Syscalls: scheduler.list, scheduler.create, scheduler.delete, scheduler.tick
+    - Auto-tick: useEffect interval calls kernel.sys.scheduler.tick() every 30s
+  
+  data_model:
+    SchedulerTrigger:
+      id: string (unique)
+      orgId: string (multi-tenant isolation)
+      workspace: Workspace
+      type: 'PROFILE_DATASET' (extensible)
+      datasetId: string
+      intervalMinutes: number
+      lastRunAt: string (ISO timestamp, optional)
+      enabled: boolean
+  
+  syscall_handlers:
+    scheduler.list: |
+      Returns schedulerTriggers filtered by activeOrg.id
+    
+    scheduler.create: |
+      Creates new trigger with generated ID
+      Logs SCHEDULER_TRIGGER_CREATED audit event
+      Returns created trigger
+    
+    scheduler.delete: |
+      Removes trigger by ID
+      Logs SCHEDULER_TRIGGER_DELETED audit event
+    
+    scheduler.tick: |
+      Iterates all enabled triggers for activeOrg
+      For each trigger:
+        - Calculate time since lastRunAt
+        - If >= intervalMinutes, call submitProfileJobForDataset
+        - Update lastRunAt to now
+      Logs SCHEDULER_TICK audit event
+  
+  helper_functions:
+    submitProfileJobForDataset: |
+      Internal helper in ZeroframeContext
+      Finds dataset by ID and orgId
+      If not found, creates alert (source: SCHEDULER, severity: WARNING)
+      Submits REPORT job with tags: ['profile', 'scheduled', datasetName]
+      Priority: LOW
+      Logs JOB_SUBMITTED audit event
+
+integration:
+  apps:
+    dev-playground:
+      - Lists all triggers for active org
+      - Create trigger form (select dataset, interval)
+      - Delete trigger button
+      - Manual "Run Scheduler Tick" button
+    
+    console:
+      - sched list: displays triggers
+      - sched tick: manually runs tick
+  
+  alerts:
+    - If trigger references missing dataset, create alert
+    - Source: SCHEDULER, Severity: WARNING
+
+testing:
+  manual_tests:
+    - Create trigger for dataset with 1 minute interval
+    - Wait 1 minute, verify profile job submitted
+    - Check audit log for SCHEDULER_TICK and JOB_SUBMITTED
+    - Delete trigger, verify no more jobs submitted
+    - Test with missing dataset, verify alert created

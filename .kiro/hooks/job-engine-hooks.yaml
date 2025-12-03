@@ -1,0 +1,108 @@
+name: Job Engine Hooks
+description: Key areas to pay attention to when modifying the job engine
+
+critical_components:
+  ZeroframeContext:
+    file: src/core/ZeroframeContext.tsx
+    functions:
+      - submitJob
+      - runWorkerTick
+      - retryJob
+      - cancelJob
+      - appendJobEvent
+      - updateJobStatus
+    constraints:
+      - Always append JobEvent when changing job state
+      - Always log AuditEvent for user-visible actions
+      - Preserve permission checks (hasPermission)
+      - Maintain state immutability (use spread operators)
+      - Keep setTimeout logic for async worker simulation
+    
+  Job Model:
+    file: src/types.ts
+    types:
+      - Job
+      - JobStatus
+      - JobEvent
+      - JobEventType
+    constraints:
+      - Don't break existing fields (breaking change)
+      - Keep events array immutable
+      - Maintain maxAttempts default of 3
+      - Keep status as union type (not string)
+  
+  Job Center UI:
+    file: src/pages/JobCenter.tsx
+    components:
+      - JobCenter (main component)
+      - SubmitJobModal (form modal)
+    constraints:
+      - Always check permissions before showing actions
+      - Display job events in timeline
+      - Show risk level based on attempts
+      - Keep modal form validation
+  
+  Ghost ABEND:
+    file: src/pages/GhostAbend.tsx
+    functions:
+      - explainFailure (rule-based analysis)
+    constraints:
+      - Only consume failed jobs (status === 'FAILED')
+      - Don't modify job state (read-only)
+      - Keep explanations helpful and actionable
+      - Maintain parasitic nature (no direct job engine calls)
+
+modification_guidelines:
+  adding_job_field:
+    - Update Job interface in src/types.ts
+    - Update mock data in src/data/mockData.ts
+    - Update submitJob to initialize new field
+    - Update JobCenter UI to display new field
+    - Consider adding to JobEvent if state-related
+  
+  adding_job_event_type:
+    - Add to JobEventType union in src/types.ts
+    - Update relevant operation to append new event type
+    - Update JobCenter timeline to display new event type
+    - Consider adding audit event for user-visible actions
+  
+  changing_worker_logic:
+    - Modify runWorkerTick in ZeroframeContext
+    - Keep priority sorting (HIGH > NORMAL > LOW)
+    - Keep oldest-first tiebreaker
+    - Preserve retry logic (attempts < maxAttempts)
+    - Test with various job configurations
+  
+  adding_job_operation:
+    - Add function to ZeroframeContext
+    - Add to ZeroframeContextValue interface
+    - Check permissions if user-initiated
+    - Log audit event
+    - Update job state immutably
+    - Append JobEvent to history
+    - Expose via useZeroframe hook
+    - Add UI controls in JobCenter
+
+testing_scenarios:
+  - Submit job with all fields populated
+  - Submit job with minimal fields (name, type only)
+  - Run worker tick with no pending jobs
+  - Run worker tick with multiple pending jobs (test priority)
+  - Run worker tick with job that fails (test retry logic)
+  - Run worker tick with job at max attempts (test permanent failure)
+  - Retry a failed job
+  - Cancel a running job
+  - Cancel a pending job
+  - Switch users and verify permission checks
+  - Verify audit events are logged for all actions
+  - Verify Ghost ABEND shows failed jobs with explanations
+
+common_pitfalls:
+  - Forgetting to append JobEvent when changing status
+  - Forgetting to log AuditEvent for user actions
+  - Mutating state directly instead of using spread operators
+  - Not checking permissions before operations
+  - Breaking event timeline by skipping events
+  - Not handling edge cases (job not found, invalid status transitions)
+  - Forgetting to update updatedAt timestamp
+  - Not clearing lastError when retrying

@@ -1,0 +1,185 @@
+name: Data Onboarding (Zero-Data Approach)
+description: |
+  Zero-data onboarding system that allows users to upload CSV/Excel files
+  to create datasets and demo jobs. No pre-seeded mock data required.
+
+architecture:
+  approach: Zero-Data SaaS
+  components:
+    - Data Onboarding System App
+    - CSV/Excel parsing (browser-side)
+    - Dataset creation via kernel syscalls
+    - Automatic job submission for ingestion and profiling
+  
+  syscalls_used:
+    - datasets.create
+    - datasets.list
+    - jobs.submit
+    - jobs.list
+    - jobs.tick
+    - audit.log
+    - security.whoami
+    - security.workspace
+  
+  data_flow: |
+    1. User uploads CSV/Excel file in Data Onboarding app
+    2. File is parsed in browser (PapaParse for CSV, xlsx for Excel)
+    3. Schema is inferred from first 50 rows (column types, nullable, samples)
+    4. User reviews schema and preview
+    5. User clicks "Create Dataset & Submit Jobs"
+    6. App calls datasets.create syscall with metadata + preview rows
+    7. App submits 2 demo jobs: Ingest + Profile
+    8. User goes to Job Center to run worker tick
+    9. Jobs execute and demonstrate the OS job engine
+
+dataset_model:
+  extensions:
+    - source: 'upload' | 'system' | 'synthetic'
+    - columns: DatasetColumn[] (name, type, nullable, sampleValues)
+    - rowCount: number
+    - sampleRows: Record<string, unknown>[] (first 50 rows for preview)
+  
+  storage: |
+    Datasets are stored in kernel memory (React state) with org isolation.
+    Only metadata and preview rows are kept; full data is not persisted.
+    This is intentional for the demo/hackathon scope.
+
+schema_inference:
+  logic: |
+    For each column, inspect up to 50 non-null values:
+    - If all values are true/false/1/0 → boolean
+    - If all values are numeric → number
+    - If all values parse as dates → date
+    - Otherwise → string
+  
+  nullable: |
+    Column is nullable if any value is null/undefined/empty string.
+
+parsing:
+  csv:
+    library: papaparse
+    options:
+      header: true
+      skipEmptyLines: true
+  
+  excel:
+    library: xlsx
+    method: |
+      Read first sheet with XLSX.read()
+      Convert to JSON with XLSX.utils.sheet_to_json()
+
+demo_jobs:
+  ingest_job:
+    name: "Ingest {dataset.name}"
+    type: ETL
+    priority: HIGH
+    description: "Simulated ingestion of file into dataset"
+    tags: ['upload', 'ingest', dataset.name]
+  
+  profile_job:
+    name: "Profile {dataset.name}"
+    type: REPORT
+    priority: NORMAL
+    description: "Profile dataset for basic statistics"
+    tags: ['upload', 'profile', dataset.name]
+
+empty_states:
+  dashboard:
+    condition: jobs.length === 0 && datasets.length === 0
+    message: "No data yet. Upload CSV or Excel in Data Onboarding to start using Zeroframe OS."
+    action: Navigate to /data-onboarding
+  
+  dataset_explorer:
+    condition: datasets.length === 0
+    message: "No datasets found. Use Data Onboarding to create one from your own files."
+    action: Navigate to /data-onboarding
+
+boot_screen:
+  status: DISABLED
+  reason: |
+    Boot screen removed to avoid fake-looking animation on every refresh.
+    App now loads directly into the normal shell.
+  
+  implementation:
+    - hasBooted default set to true
+    - completeBoot() is now a no-op
+    - BootScreen component kept but unused
+
+microkernel_compliance:
+  - All dataset creation goes through kernel.sys.datasets.createDataset
+  - Syscall dispatcher enforces capability checks
+  - Role-based permissions: datasets.create requires MANAGE_DATASETS or SUBMIT_JOB
+  - Audit events logged for all dataset creation
+  - Org isolation enforced at kernel level (orgId filtering)
+
+capabilities:
+  data-onboarding:
+    allowedSyscalls:
+      - datasets.list
+      - datasets.create
+      - jobs.submit
+      - jobs.list
+      - jobs.tick
+      - audit.log
+      - security.whoami
+      - security.workspace
+
+testing:
+  manual_test_flow:
+    1. Open Zeroframe OS (no boot screen should appear)
+    2. Navigate to Dashboard - see zero-data banner
+    3. Click "Go to Data Onboarding"
+    4. Upload a CSV or Excel file
+    5. Review inferred schema and preview
+    6. Click "Create Dataset & Submit Jobs"
+    7. See toast notification for dataset creation
+    8. Navigate to Dataset Explorer - see new dataset
+    9. Navigate to Job Center - see 2 new jobs (Ingest + Profile)
+    10. Click "Run Worker Tick" - jobs execute
+    11. Navigate to Audit Explorer - see all events logged
+    12. Navigate to Ghost ABEND - if jobs failed, analyze them
+
+  sample_csv: |
+    name,age,active,signup_date
+    Alice,30,true,2024-01-15
+    Bob,25,false,2024-02-20
+    Charlie,35,true,2024-03-10
+
+dataset_aware_jobs:
+  implementation: |
+    Data Onboarding creates dataset-aware jobs by setting datasetId on ingest/profile jobs,
+    linking jobs to their originating dataset. This enables:
+    - Ghost ABEND to show dataset context for failed jobs
+    - ShadowASM to target specific datasets for simulation
+    - Job filtering by dataset across the system
+  
+  job_model_extension:
+    - datasetId?: string (optional link to Dataset)
+  
+  integration:
+    - Ghost ABEND filters failures by dataset
+    - Ghost ABEND shows dataset schema in failure analysis
+    - ShadowASM generates starter programs from dataset schema
+    - ShadowASM submits dataset-aware simulation jobs
+
+kiroween_themes:
+  skeleton_crew: |
+    Data Onboarding demonstrates the skeleton template pattern:
+    - Minimal but complete dataset creation flow
+    - Reusable syscall architecture
+    - Easy to extend with more data sources (APIs, databases, etc.)
+  
+  resurrection: |
+    Uploaded datasets "bring the OS to life" by creating real jobs
+    that can fail and be resurrected by Ghost ABEND.
+    Dataset-aware jobs create a complete data lineage story.
+
+future_extensions:
+  - Persistent storage (localStorage, backend API)
+  - Dataset versioning and lineage
+  - More data sources (JSON, Parquet, APIs)
+  - Dataset transformations and pipelines
+  - Real data profiling (not just simulated jobs)
+  - Dataset sharing across orgs (with permissions)
+  - Dataset dependency graphs
+  - Job-to-dataset impact analysis

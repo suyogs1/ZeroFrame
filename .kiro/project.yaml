@@ -1,0 +1,158 @@
+name: Zeroframe OS
+description: A browser-native, mainframe-inspired operating system built with React and TypeScript. Complete skeleton template with microkernel architecture, multi-tenancy, zero-data onboarding, and 10 fully functional system apps.
+hackathon: Kiroween 2024
+categories:
+  - Skeleton Crew
+  - Resurrection
+
+kiroween_themes:
+  skeleton_crew: Complete OS skeleton template - minimal but fully functional foundation for building system apps
+  resurrection: Ghost ABEND analyzes failed jobs and brings them back to life with one-click retry
+
+features:
+  core:
+    - Microkernel architecture with syscall layer and capability-based security
+    - Multi-tenant SaaS platform with complete org isolation
+    - Zero-data onboarding with CSV/Excel upload and schema inference
+    - Role-based access control (DEV, OPERATOR, AUDITOR, ADMIN)
+    - Comprehensive audit trail with immutable event log
+    - Virtual File System (VFS) exposing OS resources
+    - Kernel snapshots for save/restore state
+    - IPC messaging between system apps
+    - Kernel panic and reboot simulation
+    - Demo Mode with guided walkthrough
+  
+  job_engine:
+    - Full batch job lifecycle with state machine
+    - Worker simulation with automatic processing
+    - Job retry logic with max attempts
+    - Job cancellation and priority queuing
+    - Job event history and timeline
+    - Dataset-aware jobs with lineage tracking
+  
+  data_management:
+    - Browser-side CSV/Excel parsing (PapaParse + xlsx)
+    - Automatic schema inference from sample rows
+    - Dataset profiling with statistical analysis
+    - Data lineage tracking job-dataset relationships
+    - Workspace-based dataset organization
+  
+  system_apps:
+    - Dashboard with system health overview
+    - Job & Batch Center for job management
+    - Dataset Explorer with profile visualization
+    - Data Onboarding for CSV/Excel upload
+    - Ghost ABEND for failure analysis and resurrection
+    - ShadowASM assembly playground with 20+ instructions
+    - Process Manager showing kernel processes
+    - Command Console with kernel visibility
+    - Security Center for user/role management
+    - Audit Explorer with complete event history
+
+tech_stack:
+  frontend:
+    - React 18 with TypeScript (strict mode)
+    - Vite for build and HMR
+    - React Router v6 for routing
+    - React Context + Hooks for state
+  
+  libraries:
+    - PapaParse for CSV parsing
+    - xlsx for Excel parsing
+  
+  styling:
+    - CSS Modules with CSS Variables
+    - Kiroween dark theme
+    - Responsive design
+  
+  architecture:
+    - Microkernel with syscall dispatcher
+    - Capability-based security model
+    - Multi-tenant org isolation
+    - Type-safe with zero any types
+
+architecture_phases:
+  roots: Core data models, desktop shell, system apps registry, Kiroween theme
+  bark: Security (roles, permissions), audit logging, protected routes, top bar
+  trunk: Job engine with events, worker simulation, retry/cancel, Ghost ABEND
+  branches: Demo mode, toast notifications, job timeline, ShadowASM interpreter
+  leaves: Data onboarding, dataset profiling, lineage tracking, zero-data approach
+  microkernel: Syscall layer, capability descriptors, dispatcher, role permissions
+  kernel_features: Snapshots, VFS, kernel panic, process manager, command console
+  multitenancy: Org model, org isolation, org-level roles, plan-based features
+
+system_apps:
+  - name: Dashboard
+    description: System health overview with job stats, workspace info, and recent activity
+    route: /dashboard
+    permissions: []
+  
+  - name: Job & Batch Center
+    description: Submit, monitor, and manage batch jobs with filtering and timeline
+    route: /jobs
+    permissions: [SUBMIT_JOB, MANAGE_JOBS]
+  
+  - name: Dataset Explorer
+    description: Browse datasets with profile stats and lineage visualization
+    route: /datasets
+    permissions: [MANAGE_DATASETS]
+  
+  - name: Data Onboarding
+    description: Zero-data CSV/Excel upload with schema inference and auto-job submission
+    route: /data-onboarding
+    permissions: [MANAGE_DATASETS, SUBMIT_JOB]
+  
+  - name: Ghost ABEND
+    description: Failure analysis and job resurrection (Resurrection theme)
+    route: /apps/ghost-abend
+    parasitic: true
+    consumes: Job failure data, dataset profiles
+    capabilities: [jobs.list, jobs.retry, audit.log, messaging.send]
+  
+  - name: ShadowASM
+    description: High-level assembly playground with mainframe instructions (Skeleton Crew theme)
+    route: /apps/shadowasm
+    parasitic: true
+    consumes: Dataset metadata
+    capabilities: [jobs.submit, datasets.list, audit.log]
+    instructions: [LOAD, ADD, SUB, MUL, DIV, MOD, INC, DEC, MOVE, CMP, B, BE, BNE, BH, BL, BNH, BNL, JMP, JZ, JNZ, JE, JNE, JG, JL, JGE, JLE, PRINT, HALT, NOP]
+  
+  - name: Process Manager
+    description: View kernel processes (jobs and services) with metrics
+    route: /apps/processes
+    capabilities: [processes.list, audit.log]
+  
+  - name: Command Console
+    description: Terminal interface with kernel commands and VFS access
+    route: /apps/console
+    capabilities: [processes.list, vfs.list, vfs.readFile, kernel.metrics, audit.log]
+    commands: [help, uptime, syscalls, ps, jobs, ls, cat, panic, run demo, clear]
+  
+  - name: Security Center
+    description: User and role management with permission visualization
+    route: /security
+    permissions: [MANAGE_SECURITY]
+  
+  - name: Audit Explorer
+    description: Complete audit trail with filtering and search
+    route: /audit
+    permissions: [VIEW_AUDIT]
+
+metrics:
+  system_apps: 10
+  assembly_instructions: 23
+  kernel_lines: 1400+
+  total_features: 20+
+  typescript_strict: true
+  runtime_errors: 0
+
+demo_flow:
+  - Dashboard overview
+  - Data Onboarding (upload CSV/Excel)
+  - Job Center (watch processing)
+  - Dataset Explorer (view profiles)
+  - Ghost ABEND (analyze failures)
+  - ShadowASM (write assembly)
+  - Process Manager (view kernel)
+  - Console (run commands)
+  - Audit Explorer (review trail)

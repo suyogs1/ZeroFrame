@@ -1,0 +1,171 @@
+name: Data Lineage & Profiling
+description: |
+  Dataset lineage tracking and profiling system for Zeroframe OS.
+  Tracks which jobs have processed which datasets and provides statistical profiles.
+
+requirements:
+  - id: lineage-tracking
+    description: Track dataset lineage through job execution
+    acceptance_criteria:
+      - Datasets maintain a list of jobs that have processed them
+      - Jobs track input and output datasets
+      - Lineage is updated automatically when jobs complete successfully
+      - Lineage is org-isolated (multi-tenant safe)
+
+  - id: dataset-profiling
+    description: Compute and store dataset profiles with column statistics
+    acceptance_criteria:
+      - Profile computed from sample rows during dataset creation
+      - Profile includes per-column stats (distinct count, null count, min/max, avg)
+      - Profile jobs can refresh profile data
+      - Profile displayed in Dataset Explorer
+
+  - id: lineage-ui
+    description: Display lineage information in system apps
+    acceptance_criteria:
+      - Dataset Explorer shows jobs that processed each dataset
+      - Job Center shows datasets affected by each job
+      - Links between datasets and jobs are navigable
+      - Ghost ABEND uses profile data to enhance failure analysis
+
+design:
+  architecture: |
+    Data lineage is maintained through two mechanisms:
+    
+    1. Job-to-Dataset Links:
+       - Job.inputDatasetIds: datasets read by the job
+       - Job.outputDatasetIds: datasets written by the job
+       - Job.datasetId: primary dataset (backward compatible)
+    
+    2. Dataset-to-Job Links:
+       - Dataset.lineageJobIds: jobs that have processed this dataset
+       - Updated automatically when jobs complete successfully
+    
+    Dataset profiling uses sample rows to compute statistics:
+    - ColumnProfile: per-column stats (type, distinct, nulls, min/max, avg)
+    - DatasetProfile: collection of column profiles + metadata
+    - Computed during dataset creation and by profile jobs
+
+  data_model: |
+    Job extensions:
+      - inputDatasetIds?: string[]
+      - outputDatasetIds?: string[]
+    
+    Dataset extensions:
+      - profile?: DatasetProfile
+      - lineageJobIds?: string[]
+    
+    New types:
+      - ColumnProfile: column-level statistics
+      - DatasetProfile: dataset-level profile with column profiles
+
+  components:
+    - name: datasetProfiling.ts
+      description: Utility functions for computing dataset profiles from sample rows
+      
+    - name: ZeroframeContext
+      description: |
+        - Extended job submission to accept inputDatasetIds/outputDatasetIds
+        - Lineage maintenance in job completion handler
+        - Profile computation in datasets.create syscall
+        - Profile refresh for profile jobs
+    
+    - name: Dataset Explorer
+      description: |
+        - Display profile statistics table
+        - Show lineage jobs with status and actions
+        - Navigate to Job Center or Ghost ABEND
+    
+    - name: Job Center
+      description: |
+        - Show affected datasets in job table
+        - Display dataset names for each job
+    
+    - name: Ghost ABEND
+      description: |
+        - Enhanced failure analysis using profile data
+        - Detect high null counts and mention in explanations
+        - Suggest data cleaning based on profile
+    
+    - name: ShadowASM
+      description: |
+        - Display profile summary when dataset selected
+        - Include profile stats in generated starter programs
+
+tasks:
+  - id: extend-types
+    description: Add lineage and profile fields to Job and Dataset types
+    status: complete
+    
+  - id: profiling-utility
+    description: Create datasetProfiling.ts with computeDatasetProfile function
+    status: complete
+    
+  - id: job-lineage
+    description: Update job submission to handle inputDatasetIds/outputDatasetIds
+    status: complete
+    
+  - id: lineage-maintenance
+    description: Update job completion to maintain dataset lineage
+    status: complete
+    
+  - id: profile-computation
+    description: Compute profile during dataset creation and profile jobs
+    status: complete
+    
+  - id: dataset-explorer-ui
+    description: Add profile and lineage sections to Dataset Explorer
+    status: complete
+    
+  - id: job-center-ui
+    description: Add datasets column to Job Center table
+    status: complete
+    
+  - id: ghost-abend-profile
+    description: Enhance Ghost ABEND failure analysis with profile data
+    status: complete
+    
+  - id: shadowasm-profile
+    description: Display profile in ShadowASM dataset preview
+    status: complete
+
+testing:
+  manual_tests:
+    - name: Upload and Profile
+      steps:
+        - Go to Data Onboarding
+        - Upload a CSV file with some null values
+        - Verify dataset is created with profile
+        - Check Dataset Explorer shows profile stats
+        - Verify null counts are displayed
+    
+    - name: Job Lineage
+      steps:
+        - Upload a dataset (creates ingest + profile jobs)
+        - Run worker tick to complete jobs
+        - Go to Dataset Explorer and select the dataset
+        - Verify lineage section shows both jobs
+        - Click "View Job" to navigate to Job Center
+    
+    - name: Ghost ABEND Profile Analysis
+      steps:
+        - Create a job that fails with "validation" error
+        - Ensure it references a dataset with high null counts
+        - Go to Ghost ABEND
+        - Verify failure explanation mentions null-heavy columns
+        - Verify suggestion includes data cleaning advice
+    
+    - name: ShadowASM Profile Display
+      steps:
+        - Go to ShadowASM
+        - Select a dataset with profile
+        - Verify profile summary shows column stats
+        - Click "Generate Starter Program"
+        - Verify generated code includes profile stats in comments
+
+notes: |
+  - Lineage is only updated for successfully completed jobs
+  - Profile computation uses sample rows (first 50 rows typically)
+  - Profile jobs (type=REPORT, tags includes 'profile') refresh profiles
+  - All lineage and profile data is org-isolated
+  - Backward compatible: datasetId still works, mapped to inputDatasetIds

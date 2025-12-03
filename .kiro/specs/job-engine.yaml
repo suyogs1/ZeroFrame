@@ -1,0 +1,218 @@
+name: Job Engine
+description: Real job execution simulation with state machine, worker ticks, and event history
+
+overview: |
+  The Job Engine is the heart of Zeroframe OS's batch processing capabilities.
+  It manages job lifecycle from submission through completion or failure, with
+  automatic retry logic and comprehensive event tracking. The engine is implemented
+  entirely in the ZeroframeContext for centralized state management.
+
+job_model:
+  Job:
+    fields:
+      - id: string (unique identifier)
+      - name: string (job name)
+      - ownerId: string (user who created the job)
+      - workspace: Workspace (DEV | UAT | PROD)
+      - type: 'BATCH' | 'REPORT' | 'ETL' | 'SIMULATION'
+      - status: JobStatus (PENDING | RUNNING | COMPLETED | FAILED | RETRYING | CANCELLED)
+      - createdAt: string (ISO timestamp)
+      - updatedAt: string (ISO timestamp)
+      - attempts: number (current attempt count)
+      - maxAttempts: number (default 3)
+      - priority: 'LOW' | 'NORMAL' | 'HIGH'
+      - description: string (optional)
+      - tags: string[] (optional)
+      - scriptSummary: string (optional)
+      - events: JobEvent[] (execution timeline)
+      - lastError: string (optional, last error message)
+
+  JobEvent:
+    fields:
+      - id: string (unique identifier)
+      - timestamp: string (ISO timestamp)
+      - type: JobEventType
+      - message: string (human-readable description)
+      - previousStatus: JobStatus (optional)
+      - newStatus: JobStatus (optional)
+      - actorUserId: string (optional, who triggered this event)
+
+  JobEventType:
+    values:
+      - JOB_CREATED
+      - JOB_SUBMITTED
+      - JOB_STARTED
+      - JOB_COMPLETED
+      - JOB_FAILED
+      - JOB_RETRY_SCHEDULED
+      - JOB_CANCELLED
+      - JOB_STATUS_CHANGED
+
+state_machine:
+  PENDING:
+    - Worker picks job → RUNNING
+    - User cancels → CANCELLED
+  
+  RUNNING:
+    - Success → COMPLETED
+    - Failure (attempts < maxAttempts) → RETRYING
+    - Failure (attempts >= maxAttempts) → FAILED
+    - User cancels → CANCELLED
+  
+  RETRYING:
+    - Worker picks job → RUNNING
+    - User cancels → CANCELLED
+  
+  COMPLETED:
+    - Terminal state
+  
+  FAILED:
+    - User manually retries → PENDING
+  
+  CANCELLED:
+    - Terminal state
+
+operations:
+  submitJob:
+    permission: SUBMIT_JOB
+    inputs:
+      - name: string (required)
+      - type: Job['type'] (required)
+      - workspace: Workspace (optional, defaults to activeWorkspace)
+      - priority: Job['priority'] (optional, defaults to NORMAL)
+      - description: string (optional)
+      - scriptSummary: string (optional)
+      - tags: string[] (optional)
+    behavior:
+      - Create new Job with status PENDING
+      - Set ownerId to activeUser.id
+      - Initialize events with JOB_CREATED and JOB_SUBMITTED
+      - Add to jobs array
+      - Log audit event JOB_SUBMITTED
+
+  runWorkerTick:
+    permission: MANAGE_JOBS (recommended for UI, but not enforced)
+    behavior:
+      - Find next eligible job (PENDING or RETRYING)
+      - Sort by priority (HIGH > NORMAL > LOW), then by createdAt (oldest first)
+      - If no job found, do nothing
+      - Transition job to RUNNING
+      - After 2 second delay, determine success or failure:
+        - If job name/tags contain "fail" → force failure
+        - Otherwise, 80% success, 20% failure
+      - On success:
+        - Set status to COMPLETED
+        - Append JOB_COMPLETED event
+        - Log audit event JOB_COMPLETED
+      - On failure:
+        - Increment attempts
+        - If attempts < maxAttempts:
+          - Set status to RETRYING
+          - Append JOB_FAILED and JOB_RETRY_SCHEDULED events
+          - Log audit event JOB_RETRYING
+        - If attempts >= maxAttempts:
+          - Set status to FAILED
+          - Append JOB_FAILED event
+          - Log audit event JOB_FAILED
+
+  retryJob:
+    permission: MANAGE_JOBS
+    inputs:
+      - jobId: string
+    behavior:
+      - Find job by ID
+      - If not found or status != FAILED, do nothing
+      - Set status to PENDING
+      - Clear lastError
+      - Append JOB_RETRY_SCHEDULED event with actorUserId
+      - Log audit event JOB_RETRY_REQUESTED
+
+  cancelJob:
+    permission: MANAGE_JOBS
+    inputs:
+      - jobId: string
+    behavior:
+      - Find job by ID
+      - If not found or status in [COMPLETED, FAILED, CANCELLED], do nothing
+      - Set status to CANCELLED
+      - Append JOB_CANCELLED event with actorUserId
+      - Log audit event JOB_CANCELLED
+
+integration:
+  - All operations are exposed via ZeroframeContext
+  - Job & Batch Center UI consumes jobs array and operations
+  - Ghost ABEND consumes failed jobs for analysis
+  - Audit events are logged for all job actions
+
+extension_points:
+  - Add new job types: Extend Job['type'] union
+  - Add new event types: Extend JobEventType union
+  - Customize failure logic: Modify runWorkerTick success/failure determination
+  - Add job dependencies: Extend Job model with dependencies field
+  - Add job scheduling: Extend Job model with scheduledAt field
+
+
+simulation_jobs:
+  description: |
+    SIMULATION jobs are a special job type introduced for system apps like ShadowASM.
+    They represent dev workloads initiated from system apps and are tracked by the
+    OS job engine for governance and audit purposes.
+  
+  characteristics:
+    - type: 'SIMULATION'
+    - Typically submitted by dev tools (ShadowASM, test harnesses, etc.)
+    - Use generic success/failure logic (no special execution path)
+    - Can be submitted to any workspace (DEV/UAT/PROD)
+    - Tracked in audit logs like any other job
+  
+  use_cases:
+    shadowasm:
+      - User writes assembly program in ShadowASM editor
+      - User clicks "Submit as Simulation Job"
+      - ShadowASM calls api.submitJob with type: 'SIMULATION'
+      - Job appears in Job & Batch Center
+      - Job is processed by worker tick like any other job
+      - Provides governance and tracking for dev experiments
+    
+    future:
+      - Load testing simulations
+      - Data migration dry runs
+      - Algorithm benchmarking
+      - Integration test scenarios
+
+  benefits:
+    - Dev experiments are tracked and auditable
+    - Can be monitored in Job & Batch Center
+    - Respects workspace isolation
+    - Follows same retry/failure logic as production jobs
+    - Provides historical record of dev activities
+
+updateJob_operation:
+  description: |
+    Added in BRANCHES phase to support system apps that need to extend
+    Job model with app-specific fields (e.g., Ghost ABEND's rcaNote).
+  
+  signature: |
+    updateJob(jobId: string, updater: (job: Job) => Partial<Job>): void
+  
+  behavior:
+    - Find job by ID
+    - If not found, do nothing
+    - Call updater function with current job
+    - Merge returned partial updates into job
+    - Set updatedAt to current timestamp
+    - Update jobs array immutably
+  
+  usage_example: |
+    // Ghost ABEND saving RCA note
+    api.updateJob(job.id, () => ({ rcaNote: 'Root cause: timeout' }));
+    
+    // Could also be used for:
+    // - Adding custom metadata
+    // - Updating app-specific flags
+    // - Extending job with parasitic app data
+  
+  notes:
+    - Does not append JobEvent (app-specific updates)
+    - Does not require permissions (apps manage their own fields)
+    - Apps should log audit events separately via logAppAudit

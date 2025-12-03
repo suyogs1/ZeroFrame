@@ -1,0 +1,123 @@
+name: Developer Playground System App
+description: |
+  Kernel introspection and control panel for developers. Exposes kernel metrics,
+  processes, alerts, and scheduler controls in a unified dashboard.
+
+requirements:
+  - id: devplay-1
+    description: Display kernel metrics
+    acceptance_criteria:
+      - Show boot time, uptime, total syscalls, last syscall time
+      - Display top 10 syscalls by count in table
+      - Metrics update in real-time
+  
+  - id: devplay-2
+    description: Display OS processes
+    acceptance_criteria:
+      - Show all processes from kernel.sys.processes.list
+      - Table columns: PID, Name, Type, Status, CPU%, Mem
+      - Includes both JOB and SERVICE processes
+  
+  - id: devplay-3
+    description: Display and manage alerts
+    acceptance_criteria:
+      - List all alerts for active org
+      - Show severity badge, source badge, message
+      - Acknowledge button for unacknowledged alerts
+      - Visual distinction for acknowledged alerts
+      - Sorted by createdAt descending
+  
+  - id: devplay-4
+    description: Manage scheduler triggers
+    acceptance_criteria:
+      - List all triggers for active org
+      - Show dataset name, workspace, interval, last run
+      - Delete trigger button
+      - Create trigger form (select dataset, interval)
+      - Manual "Run Scheduler Tick" button
+  
+  - id: devplay-5
+    description: Enforce capabilities and permissions
+    acceptance_criteria:
+      - App has all required syscalls in capabilities
+      - Uses useOsAppApi('dev-playground')
+      - All operations go through dispatcher
+      - Graceful handling of missing capabilities
+
+design:
+  architecture: |
+    Developer Playground is a system app that uses useOsAppApi to access:
+    - kernel.metrics (via getMetrics syscall)
+    - processes (via listProcesses syscall)
+    - alerts (via listAlerts, acknowledgeAlert syscalls)
+    - scheduler (via listSchedulerTriggers, createSchedulerTrigger, deleteSchedulerTrigger, runSchedulerTick syscalls)
+    - datasets (via listDatasets syscall, for trigger creation)
+  
+  capabilities:
+    - kernel.metrics
+    - processes.list
+    - alerts.list
+    - alerts.ack
+    - scheduler.list
+    - scheduler.create
+    - scheduler.delete
+    - scheduler.tick
+    - jobs.list
+    - datasets.list
+    - audit.log
+    - security.whoami
+    - security.workspace
+  
+  ui_layout:
+    grid: |
+      Four-section grid (2x2 or stacked):
+      1. Kernel Metrics (top-left)
+      2. OS Processes (top-right)
+      3. System Alerts (bottom-left)
+      4. Scheduler Control (bottom-right)
+    
+    kernel_metrics_section:
+      - Boot time, uptime, total syscalls, last syscall
+      - Top syscalls table (syscall name, count)
+    
+    processes_section:
+      - Table: PID, Name, Type, Status, CPU%, Mem
+      - Color-coded status (RUNNING green, SLEEPING yellow, STOPPED gray)
+    
+    alerts_section:
+      - Alert cards with severity badge, source badge
+      - Message text
+      - Created timestamp
+      - Acknowledge button (if not acknowledged)
+      - Acknowledged badge (if acknowledged)
+    
+    scheduler_section:
+      - "Run Scheduler Tick" button
+      - Active triggers table (dataset, workspace, interval, last run, delete button)
+      - Create trigger form (dataset dropdown, interval input, create button)
+
+integration:
+  system_apps:
+    - Registered in SYSTEM_APPS with id: 'dev-playground'
+    - Route: /dev-playground
+    - Icon: 🛠️
+    - Category: CORE
+  
+  routing:
+    - Added to App.tsx routes
+    - No permission wrapper (available to all logged-in users)
+  
+  capabilities:
+    - Added to APP_CAPABILITIES in src/kernel/capabilities.ts
+
+testing:
+  manual_tests:
+    - Navigate to /dev-playground
+    - Verify metrics display correctly
+    - Verify processes list includes jobs and services
+    - Submit failing job, verify alert appears
+    - Acknowledge alert, verify visual change
+    - Create scheduler trigger, verify it appears in table
+    - Run scheduler tick, verify jobs submitted
+    - Delete trigger, verify it disappears
+    - Check audit log for all actions

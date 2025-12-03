@@ -1,0 +1,123 @@
+name: Alerts & Notifications Subsystem
+description: |
+  Kernel-managed alerts for job failures, forbidden syscalls, and scheduler issues.
+  Provides visibility into system health and security events.
+
+requirements:
+  - id: alert-1
+    description: Alerts are created for critical system events
+    acceptance_criteria:
+      - Job failures create alerts (source: JOB)
+      - Forbidden syscalls create alerts (source: POLICY)
+      - Scheduler issues create alerts (source: SCHEDULER)
+      - Severity: INFO, WARNING, CRITICAL
+  
+  - id: alert-2
+    description: Alerts can be acknowledged
+    acceptance_criteria:
+      - acknowledgeAlert sets acknowledgedAt timestamp
+      - Acknowledged alerts visually distinct in UI
+      - Acknowledgment logged to audit trail
+  
+  - id: alert-3
+    description: Alerts are org-isolated
+    acceptance_criteria:
+      - All alerts have orgId
+      - listAlerts filters by activeOrg.id
+      - No cross-org alert visibility
+  
+  - id: alert-4
+    description: Alert syscalls enforce capabilities and roles
+    acceptance_criteria:
+      - alerts.list allowed for VIEW_JOBS or VIEW_AUDIT
+      - alerts.ack restricted to MANAGE_JOBS or MANAGE_SECURITY
+      - All syscalls go through dispatcher
+
+design:
+  architecture: |
+    Alerts is a kernel subsystem (kernel.sys.alerts) with:
+    - State: alerts array in ZeroframeContext
+    - API: listAlerts, acknowledgeAlert
+    - Syscalls: alerts.list, alerts.ack
+    - Helper: createAlert (internal)
+  
+  data_model:
+    KernelAlert:
+      id: string (unique)
+      orgId: string (multi-tenant isolation)
+      workspace: Workspace (optional)
+      source: 'JOB' | 'POLICY' | 'KERNEL' | 'SCHEDULER'
+      severity: 'INFO' | 'WARNING' | 'CRITICAL'
+      message: string
+      jobId: string (optional, if related to job)
+      datasetId: string (optional, if related to dataset)
+      createdAt: string (ISO timestamp)
+      acknowledgedAt: string (ISO timestamp, optional)
+  
+  syscall_handlers:
+    alerts.list: |
+      Returns alerts filtered by activeOrg.id
+      Sorted by createdAt descending (most recent first)
+    
+    alerts.ack: |
+      Finds alert by ID and orgId
+      Sets acknowledgedAt to current timestamp
+      No audit event (acknowledgment is implicit)
+  
+  helper_functions:
+    createAlert: |
+      Internal helper in ZeroframeContext
+      Creates KernelAlert with generated ID
+      Adds to alerts array
+      Logs ALERT_CREATED audit event
+      Returns created alert
+  
+  integration_points:
+    job_failures: |
+      In runWorkerTick, after job marked FAILED:
+        createAlert({
+          source: 'JOB',
+          severity: job.workspace === 'PROD' ? 'CRITICAL' : 'WARNING',
+          message: `Job "${job.name}" failed in workspace ${job.workspace}`,
+          jobId: job.id,
+          datasetId: job.datasetId,
+          workspace: job.workspace,
+        })
+    
+    forbidden_syscalls: |
+      In dispatcher, after capability check fails:
+        createAlert({
+          source: 'POLICY',
+          severity: 'WARNING',
+          message: `Forbidden syscall ${syscall} attempted by app ${appId} (user ${user.id})`,
+        })
+    
+    scheduler_issues: |
+      In submitProfileJobForDataset, if dataset not found:
+        createAlert({
+          source: 'SCHEDULER',
+          severity: 'WARNING',
+          message: `Scheduler trigger references missing dataset ${datasetId}`,
+          datasetId,
+          workspace,
+        })
+
+integration:
+  apps:
+    dev-playground:
+      - Lists all alerts for active org
+      - Shows severity badge, source badge, message
+      - Acknowledge button for unacknowledged alerts
+      - Visual distinction for acknowledged alerts
+    
+    console:
+      - alerts: lists recent alerts
+      - alerts ack <id>: acknowledges alert
+
+testing:
+  manual_tests:
+    - Submit job with "fail" in name, verify CRITICAL alert in PROD
+    - Attempt forbidden syscall, verify POLICY alert
+    - Create scheduler trigger for missing dataset, verify SCHEDULER alert
+    - Acknowledge alert, verify acknowledgedAt set
+    - Switch org, verify alerts are isolated

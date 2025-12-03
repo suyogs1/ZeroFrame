@@ -1,0 +1,111 @@
+name: Demo Mode Hooks
+description: Hooks and guidance for maintaining Demo Mode functionality
+version: 1.0.0
+
+# These hooks help ensure Demo Mode remains functional as the codebase evolves
+
+critical_files:
+  - path: src/components/DemoModeOverlay.tsx
+    purpose: Demo Mode UI overlay
+    warning: Do not remove or significantly refactor without updating demo flow
+    
+  - path: src/core/ZeroframeContext.tsx
+    purpose: Demo state management
+    regions:
+      - DemoStepId type definition
+      - DemoState interface
+      - enableDemoMode, disableDemoMode, nextDemoStep, previousDemoStep functions
+    warning: Changes to demo state structure require updates to DemoModeOverlay
+    
+  - path: src/components/TopBar.tsx
+    purpose: Demo Mode entry point
+    regions:
+      - Demo Mode button (🎬 Demo Mode)
+    warning: Keep button visible and accessible
+    
+  - path: .kiro/specs/demo-flow.yaml
+    purpose: Demo flow specification
+    warning: Update when demo steps change
+    
+  - path: .kiro/steering/demo-script.md
+    purpose: Live demo guidance
+    warning: Update when features or flow change
+
+demo_step_regions:
+  intro:
+    files:
+      - src/pages/DashboardPage.tsx
+    description: Dashboard must show system overview
+    
+  switch-user-roles:
+    files:
+      - src/components/TopBar.tsx
+    description: User/role switcher must be functional
+    
+  submit-job:
+    files:
+      - src/pages/JobCenter.tsx
+      - src/core/ZeroframeContext.tsx (submitJob)
+    description: Job submission must work and show toast
+    
+  run-worker:
+    files:
+      - src/pages/JobCenter.tsx
+      - src/core/ZeroframeContext.tsx (runWorkerTick)
+    description: Worker tick must process jobs and show toasts
+    
+  analyze-failure:
+    files:
+      - src/pages/GhostAbend.tsx
+    description: Ghost ABEND must analyze failed jobs
+    
+  shadowasm-sim:
+    files:
+      - src/pages/ShadowASM.tsx
+    description: ShadowASM must run programs and submit jobs
+    
+  audit-review:
+    files:
+      - src/pages/AuditExplorer.tsx
+    description: Audit explorer must show all events
+    
+  wrap-up:
+    files:
+      - src/pages/DashboardPage.tsx
+    description: Dashboard must reflect system changes
+
+testing_checklist:
+  - name: Demo Mode Activation
+    test: Click Demo Mode button in TopBar
+    expected: Overlay appears with intro step
+    
+  - name: Demo Step Navigation
+    test: Click Next/Previous buttons
+    expected: Steps advance/retreat correctly
+    
+  - name: Demo Mode Closure
+    test: Click X button
+    expected: Overlay disappears, button reappears
+    
+  - name: Demo Flow Completeness
+    test: Walk through all 8 steps
+    expected: Each step has clear guidance
+    
+  - name: Demo Mode Audit
+    test: Enable/disable demo mode
+    expected: DEMO_MODE_ENABLED/DISABLED events logged
+
+maintenance_guidelines:
+  - When adding new system apps, consider adding a demo step
+  - When changing major features, update demo step descriptions
+  - When refactoring UI, ensure demo overlay remains visible
+  - When changing permissions, verify demo flow still works
+  - Test demo mode after any changes to ZeroframeContext
+
+regression_prevention:
+  - Do not remove DemoModeOverlay from App.tsx
+  - Do not remove demo state from ZeroframeContext
+  - Do not remove Demo Mode button from TopBar
+  - Do not break toast notifications (used in demo)
+  - Do not break job submission/processing (core demo flow)
+  - Do not break Ghost ABEND or ShadowASM (Kiroween themes)

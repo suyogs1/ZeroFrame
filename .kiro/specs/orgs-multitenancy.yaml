@@ -1,0 +1,245 @@
+name: Multi-Tenant Organization Model
+description: SaaS multi-tenancy with per-org isolation for Zeroframe OS
+version: 1.0.0
+status: implemented
+
+purpose: |
+  Transform Zeroframe OS from a single-tenant system into a multi-tenant SaaS platform.
+  Each organization (tenant) has complete data isolation enforced at the kernel level.
+  No cross-org data access is possible through any syscall.
+
+architecture:
+  principle: "Org-aware kernel with syscall-level isolation"
+  enforcement: "All kernel syscalls filter by activeOrg.id"
+  boundary: "No syscall can see or modify data from other orgs"
+
+data_model:
+  org:
+    type: Org
+    fields:
+      - id: string (e.g., 'org-acme')
+      - name: string (e.g., 'Acme Corp')
+      - planId: OrgPlanId ('FREE' | 'TEAM' | 'ENTERPRISE')
+      - createdAt: ISO timestamp
+      - isActive: boolean
+    
+  org_plan:
+    type: OrgPlan
+    fields:
+      - id: OrgPlanId
+      - name: string
+      - description: string
+      - maxJobsPerDay: number (soft limit)
+      - maxSnapshots: number (soft limit)
+      - maxDatasets: number (soft limit)
+      - enableScheduler: boolean
+      - enableWorkflows: boolean
+      - enableAdvancedApps: boolean (Ghost ABEND, ShadowASM)
+    plans:
+      FREE:
+        maxJobsPerDay: 50
+        maxSnapshots: 3
+        maxDatasets: 10
+        enableScheduler: false
+        enableWorkflows: false
+        enableAdvancedApps: false
+      TEAM:
+        maxJobsPerDay: 500
+        maxSnapshots: 10
+        maxDatasets: 50
+        enableScheduler: true
+        enableWorkflows: true
+        enableAdvancedApps: true
+      ENTERPRISE:
+        maxJobsPerDay: 5000
+        maxSnapshots: 50
+        maxDatasets: 200
+        enableScheduler: true
+        enableWorkflows: true
+        enableAdvancedApps: true
+  
+  org_user:
+    type: OrgUser
+    fields:
+      - id: string (links to User.id)
+      - orgId: string
+      - orgRole: OrgRole ('ORG_ADMIN' | 'ORG_OPERATOR' | 'ORG_DEVELOPER' | 'ORG_AUDITOR')
+    note: "Users can belong to multiple orgs with different roles"
+
+  user:
+    type: User
+    fields:
+      - id: string
+      - name: string
+      - role: Role (workspace/technical role: 'DEV' | 'OPERATOR' | 'AUDITOR' | 'ADMIN')
+    note: "User.role is workspace-level, OrgUser.orgRole is org-level"
+
+org_isolation:
+  entities_with_orgId:
+    - Job
+    - Dataset
+    - AuditEvent
+    - KernelSnapshot
+    - KernelMessage
+  
+  kernel_filtering:
+    jobs.list: "Returns only jobs where job.orgId === activeOrg.id"
+    jobs.submit: "Creates job with orgId = activeOrg.id"
+    jobs.retry: "Only retries jobs in activeOrg"
+    jobs.cancel: "Only cancels jobs in activeOrg"
+    jobs.update: "Only updates jobs in activeOrg"
+    datasets.list: "Returns only datasets where dataset.orgId === activeOrg.id"
+    audit.list: "Returns only audit events where event.orgId === activeOrg.id"
+    audit.log: "Creates audit event with orgId = activeOrg.id"
+    messaging.send: "Creates message with orgId = activeOrg.id"
+    messaging.consume: "Only consumes messages where message.orgId === activeOrg.id"
+    processes.list: "Derives processes only from jobs in activeOrg"
+    snapshots.list: "Returns only snapshots where snapshot.orgId === activeOrg.id"
+    snapshots.create: "Creates snapshot with orgId = activeOrg.id, captures only activeOrg data"
+    snapshots.restore: "Only restores snapshots from activeOrg"
+    vfs.list: "VFS datasets filtered by activeOrg.id"
+    vfs.readFile: "VFS dataset reads filtered by activeOrg.id"
+
+  no_cross_org_access:
+    - "Syscalls never accept orgId as parameter"
+    - "Kernel always uses activeOrg for reads/writes"
+    - "Apps cannot specify which org to operate on"
+    - "Switching orgs changes the entire context"
+
+context_management:
+  zeroframe_context:
+    state:
+      - orgs: Org[]
+      - plans: OrgPlan[]
+      - orgUsers: OrgUser[]
+      - activeOrgId: string
+    derived:
+      - activeOrg: Org (computed from activeOrgId)
+      - activeOrgPlan: OrgPlan (computed from activeOrg.planId)
+    operations:
+      - setActiveOrg(orgId: string): Switches active org, logs audit event
+  
+  kernel_security_api:
+    new_methods:
+      - currentOrg(): Returns activeOrg
+      - currentOrgPlan(): Returns activeOrgPlan
+      - currentOrgRole(): Returns OrgRole for activeUser in activeOrg (or null)
+    existing:
+      - whoAmI(): Returns activeUser
+      - currentWorkspace(): Returns activeWorkspace
+
+ui_integration:
+  top_bar:
+    org_switcher:
+      label: "Organization"
+      options: All active orgs
+      onChange: Calls setActiveOrg(orgId)
+      position: Before workspace switcher
+    
+  behavior:
+    - Switching org immediately filters all data
+    - Jobs, datasets, audit events update reactively
+    - VFS reflects new org's datasets
+    - Processes list shows new org's jobs
+    - Snapshots list shows new org's snapshots
+
+seeded_data:
+  orgs:
+    - id: org-acme
+      name: Acme Corp
+      plan: TEAM
+      jobs: j1, j2, j3, j4, j8, j9 (6 jobs)
+      datasets: d1, d2, d3, d4, d5 (5 datasets)
+      
+    - id: org-mainframe-labs
+      name: Mainframe Labs
+      plan: ENTERPRISE
+      jobs: j5, j6, j7, j10 (4 jobs)
+      datasets: d6, d7, d8 (3 datasets)
+  
+  org_users:
+    acme:
+      - u1 (Dev Dora): ORG_DEVELOPER
+      - u2 (Ops Omar): ORG_OPERATOR
+      - u3 (Audit Asha): ORG_AUDITOR
+      - u4 (Admin Anil): ORG_ADMIN
+    mainframe_labs:
+      - u1 (Dev Dora): ORG_ADMIN
+      - u2 (Ops Omar): ORG_OPERATOR
+      - u4 (Admin Anil): ORG_ADMIN
+
+testing:
+  org_isolation:
+    - Switch to Acme Corp → See 6 jobs
+    - Switch to Mainframe Labs → See 4 jobs
+    - Submit job in Acme → Only visible in Acme
+    - Create snapshot in Acme → Only contains Acme data
+    - VFS /DEV/datasets in Acme → Only Acme datasets
+    - Audit trail in Acme → Only Acme events
+  
+  cross_org_verification:
+    - Job IDs from one org not accessible in another
+    - Snapshots from one org not restorable in another
+    - Messages from one org not consumable in another
+    - Processes list only shows current org's jobs
+
+constraints:
+  - No pricing or billing (just plan limits)
+  - No signup/registration flow (seeded orgs only)
+  - No org creation UI (seeded orgs only)
+  - No org settings/management UI
+  - No user invitation flow
+  - No cross-org user management
+
+future_enhancements:
+  - Org creation and management UI
+  - User invitation and onboarding
+  - Billing and subscription management
+  - Usage tracking and quota enforcement
+  - Org-level settings and preferences
+  - Cross-org collaboration (with explicit permissions)
+  - Org transfer and ownership
+  - Org deletion and data export
+
+implementation_notes:
+  files_modified:
+    - src/types.ts: Added Org, OrgPlan, OrgUser, OrgRole types
+    - src/kernel/types.ts: Added orgId to KernelMessage, KernelSnapshot; extended KernelSecurityApi
+    - src/data/mockData.ts: Added orgs, orgPlans, orgUsers; added orgId to all entities
+    - src/core/ZeroframeContext.tsx: Added org state, org-aware filtering in all syscalls
+    - src/components/TopBar.tsx: Added org switcher dropdown
+  
+  key_changes:
+    - All kernel syscalls filter by activeOrg.id
+    - All entity creation includes orgId = activeOrg.id
+    - VFS resolveVfsNode filters datasets by activeOrg.id
+    - deriveProcesses filters jobs by activeOrg.id
+    - Snapshots capture only activeOrg data
+    - Messages filtered by activeOrg.id
+
+microkernel_compliance:
+  - ✅ All org filtering happens in kernel syscalls
+  - ✅ Apps remain org-agnostic (use kernel.sys.security.currentOrg())
+  - ✅ No direct context access from apps
+  - ✅ Dispatcher enforces org boundaries
+  - ✅ Audit events logged for org switches
+  - ✅ No cross-org data leakage possible
+
+demo_script:
+  1. Start in Acme Corp (default)
+  2. Navigate to Job Center → See 6 jobs
+  3. Navigate to Dashboard → See Acme stats
+  4. Switch to Mainframe Labs (top bar)
+  5. Navigate to Job Center → See 4 different jobs
+  6. Navigate to Dashboard → See Mainframe Labs stats
+  7. Submit a job → Only visible in Mainframe Labs
+  8. Switch back to Acme → Job not visible
+  9. Open Console → `ls /DEV/datasets` → See Acme datasets
+  10. Switch to Mainframe Labs → `ls /DEV/datasets` → See different datasets
+  11. Open Audit Explorer → See only current org's events
+
+conclusion: |
+  Zeroframe OS is now a true multi-tenant SaaS platform with complete org isolation
+  enforced at the kernel level. All syscalls respect org boundaries, and no cross-org
+  data access is possible. The microkernel architecture makes this isolation clean and
+  maintainable.

@@ -1,0 +1,120 @@
+name: Demo Flow
+description: Guided demonstration flow for Zeroframe OS (Kiroween Edition)
+version: 1.0.0
+status: implemented
+
+purpose: |
+  Demo Mode provides a guided walkthrough of Zeroframe OS for judges, reviewers,
+  and new users. It showcases the key features and Kiroween themes (Skeleton Crew
+  and Resurrection) in a coherent narrative.
+
+implementation:
+  location: src/core/ZeroframeContext.tsx
+  components:
+    - DemoModeOverlay (src/components/DemoModeOverlay.tsx)
+    - Demo state in ZeroframeContext
+    - Demo Mode button in TopBar
+  
+  state_management:
+    - demoState: { enabled: boolean, currentStep: DemoStepId }
+    - enableDemoMode(), disableDemoMode()
+    - nextDemoStep(), previousDemoStep()
+  
+  audit_logging:
+    - DEMO_MODE_ENABLED when demo starts
+    - DEMO_MODE_DISABLED when demo ends
+
+demo_steps:
+  - id: intro
+    title: Welcome to Zeroframe OS
+    description: Start on the Dashboard to see system status at a glance. Notice the boot sequence on first load.
+    recommended_screen: /dashboard
+    key_concept: Microkernel architecture with boot sequence
+    
+  - id: console-basics
+    title: Command Console
+    description: Open Console (/apps/console) and try 'uptime', 'syscalls', 'ps' to see kernel metrics
+    recommended_screen: /apps/console
+    key_concept: Kernel metrics and process visibility
+    
+  - id: vfs-exploration
+    title: Virtual File System
+    description: In Console, use 'ls /' to explore VFS, 'cat /dev/time' to read devices, 'ls /DEV/datasets' for data
+    recommended_screen: /apps/console
+    key_concept: Unix-like VFS interface for OS resources
+    
+  - id: switch-user-roles
+    title: Switch User Roles
+    description: Use the top bar to switch between roles (DEV, OPERATOR, AUDITOR, ADMIN) and notice how permissions change
+    recommended_screen: any
+    key_concept: Role-based access control (RBAC)
+    
+  - id: submit-job
+    title: Submit a Job
+    description: As DEV, go to Job & Batch Center and submit a new job
+    recommended_screen: /jobs
+    recommended_role: DEV
+    key_concept: Job submission and workspace isolation
+    
+  - id: run-worker
+    title: Run Worker Tick
+    description: Switch to OPERATOR, then use Run Worker Tick to process jobs. Watch status changes and toasts
+    recommended_screen: /jobs
+    recommended_role: OPERATOR
+    key_concept: Job engine state machine and worker simulation
+    
+  - id: analyze-failure
+    title: Analyze Failures
+    description: If a job fails, open Ghost ABEND to see severity, explanation, and retry it
+    recommended_screen: /apps/ghost-abend
+    key_concept: Resurrection theme - bringing failed jobs back to life
+    
+  - id: shadowasm-sim
+    title: ShadowASM Simulation
+    description: Open ShadowASM, run a local program, and submit it as a simulation job
+    recommended_screen: /apps/shadowasm
+    key_concept: Parasitic system app that uses OS APIs
+    
+  - id: run-demo
+    title: Orchestrated Demo
+    description: In Console, type 'run demo' to execute an automated end-to-end scenario
+    recommended_screen: /apps/console
+    key_concept: Console-driven orchestration
+    
+  - id: audit-review
+    title: Review Audit Trail
+    description: Open Telemetry & Audit Explorer to see everything logged
+    recommended_screen: /audit
+    recommended_role: AUDITOR
+    key_concept: Complete audit trail and governance
+    
+  - id: wrap-up
+    title: System Overview
+    description: Return to Dashboard to recap system status. Try 'panic' in Console to see kernel panic/reboot.
+    recommended_screen: /dashboard
+    key_concept: Holistic system monitoring and recovery
+
+ui_design:
+  overlay_position: bottom-right
+  overlay_style: floating panel with gradient background
+  controls:
+    - Previous button (disabled on first step)
+    - Next button (disabled on last step)
+    - Close button (always available)
+  
+  styling:
+    - Kiroween orange accent (#ff6b35)
+    - Dark background with border
+    - Auto-hides when disabled
+
+integration_points:
+  - TopBar: Demo Mode button (hidden when demo active)
+  - App.tsx: DemoModeOverlay rendered globally
+  - ZeroframeContext: Demo state and operations
+
+future_enhancements:
+  - Highlight specific UI elements for each step
+  - Auto-navigate to recommended screens
+  - Interactive tutorials with validation
+  - Record demo sessions for playback
+  - Multi-language support
