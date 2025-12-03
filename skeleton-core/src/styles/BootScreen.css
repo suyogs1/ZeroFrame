@@ -1,0 +1,74 @@
+.boot-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: #0a0a0a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  font-family: 'Courier New', monospace;
+}
+
+.boot-panel {
+  max-width: 800px;
+  width: 90%;
+  padding: 2rem;
+  background: #1a1a1a;
+  border: 2px solid #ff6b35;
+  border-radius: 8px;
+  box-shadow: 0 0 30px rgba(255, 107, 53, 0.3);
+}
+
+.boot-header {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #333;
+}
+
+.boot-header h1 {
+  color: #ff6b35;
+  font-size: 2.5rem;
+  margin: 0 0 0.5rem 0;
+  text-shadow: 0 0 10px rgba(255, 107, 53, 0.5);
+}
+
+.boot-subtitle {
+  color: #888;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.boot-logs {
+  min-height: 300px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.boot-log-line {
+  color: #0f0;
+  font-size: 0.95rem;
+  padding: 0.3rem 0;
+  animation: fadeIn 0.3s ease-in;
+}
+
+.boot-log-line:last-child {
+  color: #ff6b35;
+  font-weight: bold;
+  font-size: 1.1rem;
+  margin-top: 1rem;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}

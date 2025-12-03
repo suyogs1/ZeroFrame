@@ -1,0 +1,11 @@
+name,age,active,signup_date,department
+Alice Johnson,30,true,2024-01-15,Engineering
+Bob Smith,25,false,2024-02-20,Marketing
+Charlie Brown,35,true,2024-03-10,Sales
+Diana Prince,28,true,2024-01-25,Engineering
+Eve Wilson,32,false,2024-04-05,HR
+Frank Miller,45,true,2023-12-01,Finance
+Grace Lee,29,true,2024-02-14,Engineering
+Henry Davis,38,false,2024-03-22,Sales
+Iris Chen,26,true,2024-01-30,Marketing
+Jack Taylor,41,true,2023-11-15,Finance

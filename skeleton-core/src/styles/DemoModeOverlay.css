@@ -1,0 +1,128 @@
+.demo-overlay {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+}
+
+.demo-panel {
+  background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+  border: 2px solid #ff6b35;
+  border-radius: 12px;
+  padding: 20px;
+  width: 360px;
+  box-shadow: 0 8px 24px rgba(255, 107, 53, 0.3);
+}
+
+.demo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.demo-badge {
+  background: #ff6b35;
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.demo-close {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.demo-close:hover {
+  color: #fff;
+}
+
+.demo-content {
+  margin-bottom: 20px;
+}
+
+.demo-step-indicator {
+  color: #ff6b35;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+}
+
+.demo-title {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+}
+
+.demo-description {
+  color: #ccc;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.demo-controls {
+  display: flex;
+  gap: 12px;
+}
+
+.demo-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.demo-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.demo-btn-primary {
+  background: #ff6b35;
+  color: #fff;
+}
+
+.demo-btn-primary:hover:not(:disabled) {
+  background: #ff8555;
+}
+
+.demo-btn-secondary {
+  background: #333;
+  color: #fff;
+}
+
+.demo-btn-secondary:hover:not(:disabled) {
+  background: #444;
+}
+
+@media (max-width: 768px) {
+  .demo-overlay {
+    bottom: 10px;
+    right: 10px;
+    left: 10px;
+  }
+
+  .demo-panel {
+    width: auto;
+  }
+}

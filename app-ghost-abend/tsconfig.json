@@ -1,0 +1,12 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "baseUrl": "src",
+    "paths": {
+      "@skeleton-core": ["../skeleton-core/src"],
+      "@skeleton-core/*": ["../skeleton-core/src/*"]
+    }
+  },
+  "include": ["src"]
+}

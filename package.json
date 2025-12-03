@@ -1,0 +1,23 @@
+{
+  "name": "zeroframe-kiroween-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "skeleton-core",
+    "app-ghost-abend",
+    "app-shadowasm"
+  ],
+  "scripts": {
+    "dev:ghost": "npm --workspace app-ghost-abend run dev",
+    "dev:shadowasm": "npm --workspace app-shadowasm run dev",
+    "build:ghost": "npm --workspace app-ghost-abend run build",
+    "build:shadowasm": "npm --workspace app-shadowasm run build",
+    "build:all": "npm run build:ghost && npm run build:shadowasm",
+    "preview:ghost": "npm --workspace app-ghost-abend run preview",
+    "preview:shadowasm": "npm --workspace app-shadowasm run preview"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3"
+  }
+}
